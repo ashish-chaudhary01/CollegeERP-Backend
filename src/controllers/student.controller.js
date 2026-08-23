@@ -1,3 +1,5 @@
+// student details
+async function studentDetails() {}
 // student all subjects
 async function studentSubjects() {}
 // student all labs
@@ -8,6 +10,7 @@ async function studentNotes() {}
 async function studentAssignment() {}
 
 export default {
+  studentDetails,
   studentAssignment,
   studentLabs,
   studentNotes,
