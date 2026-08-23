@@ -1,12 +1,12 @@
-// student details
+// teacher details
 async function teacherDetails() {}
-// student all subjects
+// teacher all subjects
 async function teacherSubjects() {}
-// student all labs
+// teacher all labs
 async function teacherLabs() {}
-// student all notes
+// teacher all notes
 async function teacherNotes() {}
-// student all assignment
+// teacher all assignment
 async function teacherAssignment() {}
 
 export default {
