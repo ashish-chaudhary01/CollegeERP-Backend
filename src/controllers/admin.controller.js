@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import userModel from "../models/user.model.js";
 import studentProfileModel from "../models/studentProfile.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
+import subjectModel from "../models/subject.model.js";
 
 // create department
 async function createDepartment(req, res) {
@@ -80,7 +81,12 @@ async function createStudent(req, res) {
 
 //get all student
 async function getAllStudent(req, res) {
-  const students = await studentProfileModel.find();
+  const students = await studentProfileModel
+    .find()
+    .populate([
+      { path: "department" },
+      { path: "userId", select: "-password" },
+    ]);
 
   res.status(200).json({ students });
 }
@@ -112,9 +118,38 @@ async function createTeacher(req, res) {
 
 // get all teacher
 async function getAllTeacher(req, res) {
-  const teacher = await teacherProfileModel.find();
+  const teacher = await teacherProfileModel
+    .find()
+    .populate({ path: "department" });
 
   res.status(200).json({ teacher });
+}
+
+// create subject
+async function createSubject(req, res) {
+  const { subjectName, departmentId, subjectCode, semester, year } = req.body;
+
+  const subject = await subjectModel.create({
+    subjectName,
+    subjectCode,
+    departmentId,
+    semester,
+    year,
+  });
+
+  res.status(201).json({ message: "Subject created Successfully", subject });
+}
+
+// get all subject
+async function getAllSubjects(req, res) {
+  const subjects = await subjectModel.find().populate({ path: "departmentId" });
+
+  res.status(200).json({ subjects });
+}
+
+// search students,teachers
+async function adminSearch(req, res) {
+  const { query } = req.body;
 }
 
 export default {
@@ -124,4 +159,6 @@ export default {
   getAllStudent,
   createTeacher,
   getAllTeacher,
+  createSubject,
+  getAllSubjects,
 };

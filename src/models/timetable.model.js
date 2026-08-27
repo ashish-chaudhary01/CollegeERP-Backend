@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const timetableSchema = new mongoose.Schema({
-  assignmentId: {
+  assignment: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "SubjectAssignment",
     required: true,

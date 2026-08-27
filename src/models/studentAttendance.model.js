@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 
 const studentAttendanceSchema = new mongoose.Schema({
-  studentId: {
+  student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Student",
     required: true,
   },
-  assignmentId: {
+  assignment: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "SubjectAssignment",
     required: true,
