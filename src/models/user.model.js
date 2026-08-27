@@ -3,10 +3,10 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema(
   {
     name: String,
-    email: String,
-    passwordHash: String,
-    role: "admin" || "hod" || "teacher" || "student",
-    status: "active" || "inactive",
+    email: { type: String, unique: true, required: true },
+    password: String,
+    role: { type: String, enum: ["student", "teacher", "hod", "admin"] },
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
   },
   { timestamps: true },
 );

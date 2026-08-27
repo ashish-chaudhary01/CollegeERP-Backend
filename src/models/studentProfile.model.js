@@ -21,7 +21,7 @@ const studentProfileSchema = new mongoose.Schema(
     profilePictureUrl: String,
     fatherName: String,
     academicSession: { type: String, required: true },
-    addharCardNumber: { type: String, unique: true, required: true },
+    addharCardNumber: { type: String, unique: true },
     department: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
