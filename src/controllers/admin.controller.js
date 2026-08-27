@@ -5,6 +5,9 @@ import studentProfileModel from "../models/studentProfile.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
 import subjectModel from "../models/subject.model.js";
 
+// get admin details
+async function getAdminDetails(req, res) {}
+
 // create department
 async function createDepartment(req, res) {
   const { departmentName, departmentCode, description } = req.body;
@@ -147,12 +150,33 @@ async function getAllSubjects(req, res) {
   res.status(200).json({ subjects });
 }
 
-// search students,teachers
+// search students
 async function adminSearch(req, res) {
-  const { query } = req.body;
+  try {
+    const { query } = req.query;
+
+    if (!query || query.trim() === "") {
+      return res.status(400).json({ message: "search query is required" });
+    }
+
+    const student = await studentProfileModel
+      .findOne({ rollNumber: query })
+      .populate({ path: "userId", select: "name email" })
+      .populate({
+        path: "department",
+        select: "departmentName departmentCode",
+      });
+
+    res.status(200).json({ student });
+  } catch (error) {
+    res.status(500).json({ message: "Error in admin search controller" });
+    console.log(error.message);
+  }
 }
 
 export default {
+  getAdminDetails,
+  adminSearch,
   createDepartment,
   getAllDepartment,
   createStudent,

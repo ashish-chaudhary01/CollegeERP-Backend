@@ -18,9 +18,9 @@ app.get("/api/health", (req, res) => {
 
 // routes
 app.use("/api/auth", authRoutes); //auth route
-// app.use("/api/student", studentRoutes); //student route
-// app.use("/api/teacher", teacherRoutes); //teacher route
-// app.use("/api/hod", hodRoutes); //hod route
 app.use("/api/admin", adminRoutes); //admin route
+// app.use("/api/hod", hodRoutes); //hod route
+// app.use("/api/teacher", teacherRoutes); //teacher route
+// app.use("/api/student", studentRoutes); //student route
 
 export default app;
