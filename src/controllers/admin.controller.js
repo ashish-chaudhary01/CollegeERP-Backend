@@ -179,7 +179,7 @@ async function createSubject(req, res) {
 
 // get all subject
 async function getAllSubjects(req, res) {
-  const subjects = await subjectModel.find().populate({ path: "departmentId" });
+  const subjects = await subjectModel.find().populate({ path: "department" });
 
   res.status(200).json({ subjects });
 }

@@ -1,4 +1,5 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.route.js";
 // import studentRoutes from "./routes/student.route.js";
 // import teacherRoutes from "./routes/teacher.route.js";
@@ -7,6 +8,7 @@ import adminRoutes from "./routes/admin.route.js";
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
 // cerp health api
 app.get("/api/health", (req, res) => {
