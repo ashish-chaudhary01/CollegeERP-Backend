@@ -41,6 +41,40 @@ async function getAllDepartment(req, res) {
   });
 }
 
+// assign hod to department
+async function assignHod(req, res) {
+  const { departmentId } = req.params;
+  const { teacherId } = req.body;
+
+  const department = await departmentModel.findById(departmentId);
+
+  if (!department) {
+    return res.status(404).json({ message: "No department found" });
+  }
+
+  const teacher = await teacherProfileModel.findById(teacherId);
+
+  if (!teacher) {
+    return res.status(404).json({ message: "Teacher not found" });
+  }
+
+  const previousHod = await teacherProfileModel.findById(department.hod);
+
+  // find previous hod and demote it to teacher
+  await userModel.findByIdAndUpdate(previousHod.userId, { role: "teacher" });
+
+  // assigning new hod
+  department.hod = teacher._id;
+  await department.save();
+
+  // find and update user(teacher) to hod
+  await userModel.findByIdAndUpdate(teacher.userId, { role: "hod" });
+
+  return res.status(200).json({
+    message: "HOD assigned successfully",
+  });
+}
+
 // create student
 async function createStudent(req, res) {
   const {
