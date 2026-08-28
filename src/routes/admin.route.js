@@ -7,6 +7,7 @@ router.get("/dashboard", adminController.getAdminDetails);
 router.get("/search", adminController.adminSearch);
 router.get("/departments", adminController.getAllDepartment);
 router.post("/department", adminController.createDepartment);
+router.post("/department/:departmentId/assign-hod", adminController.assignHod);
 router.get("/students", adminController.getAllStudent);
 router.post("/student", adminController.createStudent);
 router.get("/teachers", adminController.getAllTeacher);

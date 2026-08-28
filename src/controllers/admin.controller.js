@@ -209,6 +209,7 @@ async function adminSearch(req, res) {
 }
 
 export default {
+  assignHod,
   getAdminDetails,
   adminSearch,
   createDepartment,
