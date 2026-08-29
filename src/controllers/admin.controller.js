@@ -257,6 +257,30 @@ async function getAllTeacher(req, res) {
   res.status(200).json({ teacher });
 }
 
+// get teacher details
+async function getTeacherDetails(req, res) {
+  try {
+    const { teacherId } = req.params;
+
+    const teacher = await teacherProfileModel
+      .findById(teacherId)
+      .populate([
+        { path: "userId", select: "name email" },
+        { path: "department" },
+      ]);
+    if (!teacher) {
+      return res.status(404).json({ message: "No teacher found" });
+    }
+    const subjects = await subjectAssignmentModel
+      .find({ teacherId: teacherId })
+      .populate({ path: "subjectId" });
+
+    res.status(200).json({ teacher, subjects });
+  } catch (error) {
+    console.log("Error in fetching teacher details", error.message);
+  }
+}
+
 // create subject
 async function createSubject(req, res) {
   const { subjectName, departmentId, subjectCode, semester, year } = req.body;
@@ -384,6 +408,7 @@ export default {
   getStudentDetails,
   createTeacher,
   getAllTeacher,
+  getTeacherDetails,
   createSubject,
   getAllSubjects,
   getAttendance,

@@ -72,6 +72,12 @@ router.post(
   adminController.createTeacher,
 );
 router.get(
+  "/teacher/:teacherId",
+  protect,
+  authorizeRole("admin"),
+  adminController.getTeacherDetails,
+);
+router.get(
   "/subjects",
   protect,
   authorizeRole("admin"),
