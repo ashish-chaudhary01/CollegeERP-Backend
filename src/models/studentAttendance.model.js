@@ -25,8 +25,8 @@ const studentAttendanceSchema = new mongoose.Schema({
 //
 studentAttendanceSchema.index(
   {
-    studentId: 1,
-    assignmentId: 1,
+    student: 1,
+    assignment: 1,
     date: 1,
   },
   {

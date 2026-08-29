@@ -39,7 +39,68 @@ async function searchStudent(req, res) {
 }
 
 // get hod dashboard
-async function getHodDashboard(req, res) {}
+async function getHodDashboard(req, res) {
+  try {
+    const userId = req.user.id;
+    // hod teacher profile
+    const hodProfile = await teacherProfileModel.findOne({ userId });
+
+    if (!hodProfile) {
+      return res.status(404).json({ message: "Hod Profile Not Found" });
+    }
+    // hod department id
+    const departmentId = hodProfile.department;
+
+    // for overview cards
+    const students = await studentProfileModel
+      .find({ department: departmentId })
+      .select("_id");
+    const studentIds = students.map((student) => student._id);
+    const totalTeachers = await teacherProfileModel.countDocuments({
+      department: departmentId,
+    });
+    const totalSubjects = await subjectModel.countDocuments({
+      department: departmentId,
+    });
+
+    const currentYear = new Date().getFullYear();
+
+    // overall attendance of department
+    const totalPresent = await studentAttendanceModel.countDocuments({
+      status: "present",
+      date: {
+        $regex: `^${currentYear}`,
+      },
+      student: { $in: studentIds },
+    });
+    const totalabsent = await studentAttendanceModel.countDocuments({
+      status: "absent",
+      date: {
+        $regex: `^${currentYear}`,
+      },
+      student: { $in: studentIds },
+    });
+
+    const totalClasses = totalPresent + totalabsent;
+
+    const overallAttendance =
+      totalClasses === 0 ? 0 : (totalPresent / totalClasses) * 100;
+
+    res.status(200).json({
+      totalStudents: studentIds.length(),
+      totalTeachers,
+      totalDepartments,
+      totalSubjects,
+      attendance: {
+        present: totalPresent,
+        absent: totalabsent,
+        overall: Number(overallAttendance).toFixed(2),
+      },
+    });
+  } catch (error) {
+    console.log("Error in hod dashboard", error.message);
+  }
+}
 
 // add new student
 async function addStudent(req, res) {
