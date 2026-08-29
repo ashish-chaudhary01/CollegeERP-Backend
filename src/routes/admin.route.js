@@ -9,7 +9,7 @@ router.get(
   "/dashboard",
   protect,
   authorizeRole("admin"),
-  adminController.getAdminDetails,
+  adminController.getAdminDashboard,
 );
 router.get(
   "/search",
@@ -29,6 +29,12 @@ router.post(
   authorizeRole("admin"),
   adminController.createDepartment,
 );
+router.get(
+  "/department/:departmentId",
+  protect,
+  authorizeRole("admin"),
+  adminController.getDepartmentDetails,
+);
 router.post(
   "/department/:departmentId/assign-hod",
   protect,
@@ -46,6 +52,12 @@ router.post(
   protect,
   authorizeRole("admin"),
   adminController.createStudent,
+);
+router.get(
+  "/student/:studentId",
+  protect,
+  authorizeRole("admin"),
+  adminController.getStudentDetails,
 );
 router.get(
   "/teachers",
@@ -71,8 +83,19 @@ router.post(
   authorizeRole("admin"),
   adminController.createSubject,
 );
-// router.get("/attendance",);
+router.post(
+  "/subject/:subjectId",
+  protect,
+  authorizeRole("admin"),
+  adminController.assignSubject,
+);
+router.get(
+  "/attendance",
+  protect,
+  authorizeRole("admin"),
+  adminController.getAttendance,
+);
 // router.get("/timetable", );
-// router.get("/fees", );
+router.get("/fees", protect, authorizeRole("admin"), adminController.getFees);
 
 export default router;

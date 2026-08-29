@@ -4,9 +4,55 @@ import userModel from "../models/user.model.js";
 import studentProfileModel from "../models/studentProfile.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
 import subjectModel from "../models/subject.model.js";
+import studentAttendanceModel from "../models/studentAttendance.model.js";
+import subjectAssignmentModel from "../models/subjectAssignment.model.js";
+import feesModel from "../models/fees.model.js";
 
 // get admin details
-async function getAdminDetails(req, res) {}
+async function getAdminDashboard(req, res) {
+  try {
+    // for overview cards
+    const totalStudents = await studentProfileModel.countDocuments();
+    const totalTeachers = await teacherProfileModel.countDocuments();
+    const totalDepartments = await departmentModel.countDocuments();
+    const totalSubjects = await subjectModel.countDocuments();
+
+    const currentYear = new Date().getFullYear();
+
+    // overall attendance
+    const totalPresent = await studentAttendanceModel.countDocuments({
+      status: "present",
+      date: {
+        $regex: `^${currentYear}`,
+      },
+    });
+    const totalabsent = await studentAttendanceModel.countDocuments({
+      status: "absent",
+      date: {
+        $regex: `^${currentYear}`,
+      },
+    });
+
+    const totalClasses = totalPresent + totalabsent;
+
+    const overallAttendance =
+      totalClasses === 0 ? 0 : (totalPresent / totalClasses) * 100;
+
+    res.status(200).json({
+      totalStudents,
+      totalTeachers,
+      totalDepartments,
+      totalSubjects,
+      attendance: {
+        present: totalPresent,
+        absent: totalabsent,
+        overall: Number(overallAttendance).toFixed(2),
+      },
+    });
+  } catch (error) {
+    console.log("Error in admin dashboard", error.message);
+  }
+}
 
 // create department
 async function createDepartment(req, res) {
@@ -41,6 +87,32 @@ async function getAllDepartment(req, res) {
   });
 }
 
+// get department details
+async function getDepartmentDetails(req, res) {
+  try {
+    const { departmentId } = req.params;
+
+    const department = await departmentModel.findById(departmentId);
+    const hodId = department.hod;
+    const hod = await teacherProfileModel
+      .findById(hodId)
+      .populate({ path: "userId", select: "name email status" });
+    const departmentTeachers = await teacherProfileModel
+      .find({
+        department: departmentId,
+      })
+      .populate({ path: "userId", select: "name email status" });
+
+    res.status(200).json({
+      department,
+      hod,
+      departmentTeachers,
+    });
+  } catch (error) {
+    console.log(error.message);
+  }
+}
+
 // assign hod to department
 async function assignHod(req, res) {
   const { departmentId } = req.params;
@@ -61,7 +133,9 @@ async function assignHod(req, res) {
   const previousHod = await teacherProfileModel.findById(department.hod);
 
   // find previous hod and demote it to teacher
-  await userModel.findByIdAndUpdate(previousHod.userId, { role: "teacher" });
+  if (previousHod) {
+    await userModel.findByIdAndUpdate(previousHod.userId, { role: "teacher" });
+  }
 
   // assigning new hod
   department.hod = teacher._id;
@@ -128,6 +202,27 @@ async function getAllStudent(req, res) {
   res.status(200).json({ students });
 }
 
+// get student details
+async function getStudentDetails(req, res) {
+  try {
+    const { studentId } = req.params;
+    const student = await studentProfileModel
+      .findById(studentId)
+      .populate([
+        { path: "userId", select: "name email" },
+        { path: "department" },
+      ]);
+
+    if (!student) {
+      res.status(404).json({ message: "No student found" });
+    }
+
+    res.status(200).json({ student });
+  } catch (error) {
+    console.log(error.message);
+  }
+}
+
 // create teacher
 async function createTeacher(req, res) {
   const { name, email, password, department } = req.body;
@@ -184,6 +279,24 @@ async function getAllSubjects(req, res) {
   res.status(200).json({ subjects });
 }
 
+// assign subject to teacher
+async function assignSubject(req, res) {
+  const { subjectId } = req.params;
+  const { teacherId } = req.body;
+
+  const subject = await subjectModel.findById(subjectId);
+  if (!subject) {
+    return res.status(404).json({ message: "No subject Found" });
+  }
+
+  await subjectAssignmentModel.create({
+    subjectId,
+    teacherId,
+  });
+
+  res.status(201).json({ message: "Subject assigned successfully" });
+}
+
 // search students
 async function adminSearch(req, res) {
   try {
@@ -208,16 +321,72 @@ async function adminSearch(req, res) {
   }
 }
 
+// get attendance whole
+async function getAttendance(req, res) {}
+
+// get fees of students
+async function getFees(req, res) {
+  try {
+    const { session } = req.params;
+    const { department, semester, status } = req.query;
+
+    const feeFilter = {
+      session,
+    };
+
+    if (status) {
+      feeFilter.status = status;
+    }
+
+    const fees = await feesModel.find(feeFilter).populate({
+      path: "studentId",
+      match: {
+        ...(department && {
+          department: department,
+        }),
+
+        ...(semester && {
+          semester: Number(semester),
+        }),
+      },
+
+      populate: [
+        {
+          path: "userId",
+          select: "name email",
+        },
+        {
+          path: "department",
+          select: "name code",
+        },
+      ],
+    });
+
+    const result = fees.filter((fee) => fee.studentId !== null);
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+}
+
 export default {
   assignHod,
-  getAdminDetails,
+  getAdminDashboard,
   adminSearch,
   createDepartment,
   getAllDepartment,
+  getDepartmentDetails,
   createStudent,
   getAllStudent,
+  getStudentDetails,
   createTeacher,
   getAllTeacher,
   createSubject,
   getAllSubjects,
+  getAttendance,
+  assignSubject,
+  getFees,
 };

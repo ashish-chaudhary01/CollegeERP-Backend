@@ -13,7 +13,6 @@ const studentProfileSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-
     semester: {
       type: Number,
       required: true,
