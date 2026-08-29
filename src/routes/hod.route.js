@@ -1,14 +1,13 @@
-// import express from "express";
-// import hodController from "../controllers/hod.controller.js";
-// const router = express.Router();
+import express from "express";
+import protect from "../middlewares/auth.middleware.js";
+import hodController from "../controllers/hod.controller.js";
+const router = express.Router();
 
-// // router.get("/dashboard", hodController.hodDetails);
-// // router.get("/search", hodController.hodDetails);
-// // router.get("/students", hodController.hodStudent);
-// // router.get("/teacher", hodController.hodTeacher);
-// // router.get("/subjects", hodController.hodSubject);
-// // router.get("/attendance", hodController.hodLabs);
-// // router.get("/timetable", hodController.hodLabs);
-// // router.get("/fees", hodController.hodLabs);
+router.get("/search", protect, hodController.searchStudent);
+router.get("/dashboard", protect, hodController.getHodDashboard);
+router.get("/students", protect, hodController.getStudents);
+router.get("/teachers", protect, hodController.getTeachers);
+router.get("/subjects", protect, hodController.getSubjects);
+router.get("/fees", protect, hodController.getStudentFess);
 
-// export default router;
+export default router;

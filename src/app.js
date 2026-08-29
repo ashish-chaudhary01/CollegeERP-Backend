@@ -3,7 +3,7 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.route.js";
 // import studentRoutes from "./routes/student.route.js";
 // import teacherRoutes from "./routes/teacher.route.js";
-// import hodRoutes from "./routes/hod.route.js";
+import hodRoutes from "./routes/hod.route.js";
 import adminRoutes from "./routes/admin.route.js";
 
 const app = express();
@@ -21,7 +21,7 @@ app.get("/api/health", (req, res) => {
 // routes
 app.use("/api/auth", authRoutes); //auth route
 app.use("/api/admin", adminRoutes); //admin route
-// app.use("/api/hod", hodRoutes); //hod route
+app.use("/api/hod", hodRoutes); //hod route
 // app.use("/api/teacher", teacherRoutes); //teacher route
 // app.use("/api/student", studentRoutes); //student route
 

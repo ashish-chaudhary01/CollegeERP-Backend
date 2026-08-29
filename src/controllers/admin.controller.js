@@ -7,9 +7,8 @@ import subjectModel from "../models/subject.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import subjectAssignmentModel from "../models/subjectAssignment.model.js";
 import feesModel from "../models/fees.model.js";
-import { populate } from "dotenv";
 
-// get admin details
+// get admin dashboard
 async function getAdminDashboard(req, res) {
   try {
     // for overview cards
