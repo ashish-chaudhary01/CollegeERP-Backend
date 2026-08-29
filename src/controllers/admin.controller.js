@@ -217,7 +217,9 @@ async function getStudentDetails(req, res) {
       res.status(404).json({ message: "No student found" });
     }
 
-    res.status(200).json({ student });
+    const fees = await feesModel.findOne({ studentId: studentId });
+
+    res.status(200).json({ student, fees });
   } catch (error) {
     console.log(error.message);
   }
