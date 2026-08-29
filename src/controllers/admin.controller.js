@@ -7,6 +7,7 @@ import subjectModel from "../models/subject.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import subjectAssignmentModel from "../models/subjectAssignment.model.js";
 import feesModel from "../models/fees.model.js";
+import { populate } from "dotenv";
 
 // get admin details
 async function getAdminDashboard(req, res) {
@@ -303,6 +304,28 @@ async function getAllSubjects(req, res) {
   res.status(200).json({ subjects });
 }
 
+// get subject details
+async function getSubjectDetails(req, res) {
+  try {
+    const { subjectId } = req.params;
+
+    const subject = await subjectModel
+      .findById(subjectId)
+      .populate({ path: "departmentId" });
+    if (!subject) {
+      return res.status(404).json({ message: "Subject not found" });
+    }
+
+    const assignedTeacher = await subjectAssignmentModel
+      .find({ subjectId: subjectId })
+      .populate({ path: "teacherId", populate: [{ path: "userId" }] });
+
+    res.status(200).json({ subject, assignedTeacher });
+  } catch (error) {
+    console.log("Error in fecthing subject details", error.message);
+  }
+}
+
 // assign subject to teacher
 async function assignSubject(req, res) {
   const { subjectId } = req.params;
@@ -413,5 +436,6 @@ export default {
   getAllSubjects,
   getAttendance,
   assignSubject,
+  getSubjectDetails,
   getFees,
 };

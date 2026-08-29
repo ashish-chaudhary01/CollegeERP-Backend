@@ -89,8 +89,14 @@ router.post(
   authorizeRole("admin"),
   adminController.createSubject,
 );
-router.post(
+router.get(
   "/subject/:subjectId",
+  protect,
+  authorizeRole("admin"),
+  adminController.getSubjectDetails,
+);
+router.post(
+  "/subject/:subjectId/assign-subject",
   protect,
   authorizeRole("admin"),
   adminController.assignSubject,
@@ -101,7 +107,6 @@ router.get(
   authorizeRole("admin"),
   adminController.getAttendance,
 );
-// router.get("/timetable", );
 router.get("/fees", protect, authorizeRole("admin"), adminController.getFees);
 
 export default router;

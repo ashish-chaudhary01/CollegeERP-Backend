@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const subjectSchema = new mongoose.Schema(
   {
     subjectName: { type: String, required: true },
-    department: {
+    departmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
       required: true,
