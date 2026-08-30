@@ -1,5 +1,6 @@
 import express from "express";
 import teacherController from "../controllers/teacher.controller.js";
+import protect from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 router.get("/search", protect, teacherController.searchStudent);
