@@ -1,12 +1,11 @@
-// import express from "express";
-// import studentController from "../controllers/student.controller.js";
-// const router = express.Router();
+import express from "express";
+import studentController from "../controllers/student.controller.js";
+const router = express.Router();
 
-// router.get("/dashboard", studentController.studentDetails);
-// router.get("/subjects", studentController.studentSubjects);
-// router.get("/attendance", studentController.studentNotes);
-// router.get("/timetable", studentController.studentLabs);
-// router.get("/result", studentController.studentAssignment);
-// router.get("/fees", studentController.studentAssignment);
+router.get("/dashboard", protect, studentController.studentDashboard);
+router.get("/student/:studentId", protect, studentController.studentProfile);
+router.get("/subjects", protect, studentController.getStudentSubjects);
+router.get("/subject/:subjectId", protect, studentController.getSubjectDetails);
+router.get("/fees", protect, studentController.getStudentFees);
 
-// export default router;
+export default router;

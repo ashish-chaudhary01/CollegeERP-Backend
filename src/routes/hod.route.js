@@ -14,6 +14,6 @@ router.post("/teacher", protect, hodController.addTeacher);
 router.get("/subjects", protect, hodController.getSubjects);
 router.get("/subject/:subjectId", protect, hodController.getSubjectDetails);
 router.post("/subject", protect, hodController.addSubject);
-router.get("/fees", protect, hodController.getStudentFess);
+router.get("/fees", protect, hodController.getStudentFees);
 
 export default router;

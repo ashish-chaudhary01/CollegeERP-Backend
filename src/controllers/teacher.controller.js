@@ -1,5 +1,8 @@
-import subjectAssignmentModel from "../models/subjectAssignment.model";
-import teacherProfileModel from "../models/teacherProfile.model";
+import feesModel from "../models/fees.model.js";
+import studentProfileModel from "../models/studentProfile.model.js";
+import subjectModel from "../models/subject.model.js";
+import subjectAssignmentModel from "../models/subjectAssignment.model.js";
+import teacherProfileModel from "../models/teacherProfile.model.js";
 
 // search student
 async function searchStudent(req, res) {
@@ -136,7 +139,7 @@ async function getSubjectDetails(req, res) {
 }
 
 // get fees details
-async function getStudentFess(req, res) {
+async function getStudentFees(req, res) {
   try {
     const userId = req.user.id;
     //  teacher profile
@@ -185,5 +188,5 @@ export default {
   getStudentDetails,
   getTeacherSubject,
   getSubjectDetails,
-  getStudentFess,
+  getStudentFees,
 };

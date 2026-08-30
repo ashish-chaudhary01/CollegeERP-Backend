@@ -371,7 +371,7 @@ async function getSubjectDetails(req, res) {
 }
 
 // get fees details
-async function getStudentFess(req, res) {
+async function getStudentFees(req, res) {
   try {
     const userId = req.user.id;
     // hod teacher profile
@@ -424,5 +424,5 @@ export default {
   addSubject,
   getSubjects,
   getSubjectDetails,
-  getStudentFess,
+  getStudentFees,
 };
