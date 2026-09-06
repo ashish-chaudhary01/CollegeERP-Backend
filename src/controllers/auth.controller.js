@@ -38,18 +38,22 @@ export async function loginUser(req, res) {
     process.env.JWT_SECRET,
   );
 
-  res.cookie("token", newToken);
-
-  res.status(200).json({
-    message: "User logged In successfully",
-    user: {
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    },
-    token: newToken,
-  });
+  res
+    .status(200)
+    .cookie("token", newToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+    })
+    .json({
+      message: "User logged In successfully",
+      user: {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+      },
+    });
 }
 
 // export async function changePassword(req,res){
