@@ -42,6 +42,16 @@ export async function loginUser(req, res) {
 
   res.status(200).json({
     message: "User logged In successfully",
-    user: user,
+    user: {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+    },
+    token: newToken,
   });
 }
+
+// export async function changePassword(req,res){
+//   const {email,password}
+// }
