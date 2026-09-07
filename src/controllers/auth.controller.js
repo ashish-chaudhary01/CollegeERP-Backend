@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 // login controller function
-export async function loginUser(req, res) {
+async function loginUser(req, res) {
   const { email, password } = req.body;
 
   const token = req.cookies.token;
@@ -56,6 +56,16 @@ export async function loginUser(req, res) {
     });
 }
 
+// logout controller function
+async function logoutUser(req, res) {
+  res
+    .clearCookie("token", { httpOnly: true, sameSite: "lax", secure: false })
+    .status(200)
+    .json({ message: "logged out successfully" });
+}
+
 // export async function changePassword(req,res){
 //   const {email,password}
 // }
+
+export default { loginUser, logoutUser };
