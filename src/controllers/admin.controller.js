@@ -80,7 +80,10 @@ async function createDepartment(req, res) {
 
 // get department
 async function getAllDepartment(req, res) {
-  const departments = await departmentModel.find();
+  const departments = await departmentModel.find().populate({
+    path: "hod",
+    populate: { path: "userId", select: "name email" },
+  });
 
   res.status(200).json({
     departments,
@@ -160,6 +163,7 @@ async function createStudent(req, res) {
     year,
     department,
     academicSession,
+    addharCardNumber,
   } = req.body;
 
   //password hash
@@ -181,6 +185,7 @@ async function createStudent(req, res) {
     semester: semester,
     department: department,
     academicSession: academicSession,
+    addharCardNumber: addharCardNumber,
   });
 
   res.status(201).json({
