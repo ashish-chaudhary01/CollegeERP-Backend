@@ -107,6 +107,12 @@ router.get(
   authorizeRole("admin"),
   adminController.getAttendance,
 );
+router.post(
+  "/fees",
+  protect,
+  authorizeRole("admin"),
+  adminController.submitFees,
+);
 router.get("/fees", protect, authorizeRole("admin"), adminController.getFees);
 
 export default router;

@@ -412,29 +412,41 @@ async function getAttendance(req, res) {}
 // get fees of students
 async function getFees(req, res) {
   try {
-    const { session } = req.params;
     const { department, semester, status } = req.query;
+    const feeFilter = {};
 
-    const feeFilter = {
-      session,
-    };
-
-    if (status) {
+    if (status && status !== "all") {
       feeFilter.status = status;
     }
 
-    const fees = await feesModel.find(feeFilter).populate({
+    const studentFilter = {};
+
+    if (semester && semester !== "all") {
+      studentFilter.semester = Number(semester);
+    }
+
+    if (department && department !== "all") {
+      const departmentData = await departmentModel.findOne({
+        departmentCode: department,
+      });
+
+      if (!departmentData) {
+        return res.status(200).json([]);
+      }
+
+      studentFilter.department = departmentData._id;
+    }
+
+    if (Object.keys(studentFilter).length > 0) {
+      const students = await studentProfileModel
+        .find(studentFilter)
+        .select("_id");
+
+      feeFilter.studentId = { $in: students.map((student) => student._id) };
+    }
+
+    const feesData = await feesModel.find(feeFilter).populate({
       path: "studentId",
-      match: {
-        ...(department && {
-          department: department,
-        }),
-
-        ...(semester && {
-          semester: Number(semester),
-        }),
-      },
-
       populate: [
         {
           path: "userId",
@@ -442,18 +454,44 @@ async function getFees(req, res) {
         },
         {
           path: "department",
-          select: "name code",
+          select: "departmentName",
         },
       ],
     });
 
-    const result = fees.filter((fee) => fee.studentId !== null);
+    const result = feesData.map((fees) => ({
+      status: fees.status,
+      studentName: fees.studentId.userId.name,
+      studentRollNumber: fees.studentId.rollNumber,
+      email: fees.studentId.userId.email,
+      semester: fees.studentId.semester,
+      year: fees.studentId.year,
+      departmentName: fees.studentId.department.departmentName,
+    }));
 
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
       message: error.message,
     });
+  }
+}
+
+async function submitFees(req, res) {
+  try {
+    const { studentId } = req.query;
+    const { session, status } = req.body;
+
+    const fees = await feesModel.create({
+      studentId,
+      session,
+      status,
+    });
+
+    res.status(201).json({ message: "Fees submitted successfully" });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: "failed to submit fees" });
   }
 }
 
@@ -476,4 +514,5 @@ export default {
   assignSubject,
   getSubjectDetails,
   getFees,
+  submitFees,
 };
