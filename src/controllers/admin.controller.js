@@ -197,14 +197,27 @@ async function createStudent(req, res) {
 
 //get all student
 async function getAllStudent(req, res) {
-  const students = await studentProfileModel
-    .find()
-    .populate([
-      { path: "department" },
+  try {
+    const { departmentId, status } = req.query;
+
+    const filter = {};
+
+    if (departmentId) {
+      filter.department = departmentId;
+    }
+    if (status) {
+      filter.status = status;
+    }
+
+    const students = await studentProfileModel.find(filter).populate([
+      { path: "department", select: "departmentName departmentCode" },
       { path: "userId", select: "-password" },
     ]);
 
-  res.status(200).json({ students });
+    res.status(200).json({ students });
+  } catch (error) {
+    console.log(error.message);
+  }
 }
 
 // get student details
@@ -259,7 +272,8 @@ async function createTeacher(req, res) {
 async function getAllTeacher(req, res) {
   const teacher = await teacherProfileModel
     .find()
-    .populate({ path: "department" });
+    .populate({ path: "department" })
+    .populate({ path: "userId", select: "-password" });
 
   res.status(200).json({ teacher });
 }
@@ -305,7 +319,25 @@ async function createSubject(req, res) {
 
 // get all subject
 async function getAllSubjects(req, res) {
-  const subjects = await subjectModel.find().populate({ path: "department" });
+  const subjectsData = await subjectAssignmentModel
+    .find()
+    .populate({
+      path: "subjectId",
+      populate: { path: "departmentId", select: "departmentName" },
+    })
+    .populate({
+      path: "teacherId",
+      populate: { path: "userId", select: "name" },
+    });
+
+  const subjects = subjectsData.map((subject) => ({
+    subjectName: subject.subjectId.subjectName,
+    subjectCode: subject.subjectId.subjectCode,
+    year: subject.subjectId.year,
+    semester: subject.subjectId.semester,
+    department: subject.subjectId.departmentId.departmentName,
+    teacherName: subject.teacherId.userId.name,
+  }));
 
   res.status(200).json({ subjects });
 }

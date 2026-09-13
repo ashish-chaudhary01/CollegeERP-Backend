@@ -11,7 +11,7 @@ dotenv.config();
 const port = process.env.PORT || 8000;
 
 // server listen
-app.listen(port, () => {
-  connectDB();
+app.listen(port, async () => {
+  await connectDB();
   console.log(`Server is running on port ${port}`);
 });
