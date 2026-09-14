@@ -412,11 +412,11 @@ async function getAttendance(req, res) {}
 // get fees of students
 async function getFees(req, res) {
   try {
-    const { department, semester, status } = req.query;
+    const { department, semester, feeStatus, status } = req.query;
     const feeFilter = {};
 
-    if (status && status !== "all") {
-      feeFilter.status = status;
+    if (feeStatus && feeStatus !== "all") {
+      feeFilter.status = feeStatus;
     }
 
     const studentFilter = {};
@@ -427,7 +427,7 @@ async function getFees(req, res) {
 
     if (department && department !== "all") {
       const departmentData = await departmentModel.findOne({
-        departmentCode: department,
+        _id: department,
       });
 
       if (!departmentData) {
@@ -435,6 +435,9 @@ async function getFees(req, res) {
       }
 
       studentFilter.department = departmentData._id;
+    }
+    if (status && status != "all") {
+      studentFilter.status = status;
     }
 
     if (Object.keys(studentFilter).length > 0) {
