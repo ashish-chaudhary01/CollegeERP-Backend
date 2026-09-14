@@ -56,26 +56,31 @@ async function getAdminDashboard(req, res) {
 
 // create department
 async function createDepartment(req, res) {
-  const { departmentName, departmentCode, description } = req.body;
+  try {
+    const { departmentName, departmentCode, description } = req.body;
 
-  const isDepartmentExist = await departmentModel.findOne({
-    departmentName: departmentName,
-    departmentCode: departmentCode,
-  });
+    const isDepartmentExist = await departmentModel.findOne({
+      departmentName: departmentName,
+      departmentCode: departmentCode,
+    });
 
-  if (isDepartmentExist) {
-    return res.status(401).json({ message: "Department already exist" });
+    if (isDepartmentExist) {
+      return res.status(401).json({ message: "Department already exist" });
+    }
+    if (departmentName && departmentCode) {
+      const department = await departmentModel.create({
+        departmentName,
+        departmentCode,
+        description,
+      });
+
+      res
+        .status(201)
+        .json({ message: "Department Successfully created!", department });
+    }
+  } catch (error) {
+    console.log(error.message);
   }
-
-  const department = await departmentModel.create({
-    departmentName,
-    departmentCode,
-    description,
-  });
-
-  res
-    .status(201)
-    .json({ message: "Department Successfully created!", department });
 }
 
 // get department
@@ -154,59 +159,83 @@ async function assignHod(req, res) {
 
 // create student
 async function createStudent(req, res) {
-  const {
-    name,
-    email,
-    rollNumber,
-    password,
-    semester,
-    year,
-    department,
-    academicSession,
-    addharCardNumber,
-  } = req.body;
+  try {
+    const {
+      name,
+      email,
+      rollNumber,
+      password,
+      semester,
+      year,
+      department,
+      academicSession,
+      addharCardNumber,
+    } = req.body;
 
-  //password hash
-  const passwordHash = await bcrypt.hash(password, 10);
+    if (
+      !name &&
+      !email &&
+      !rollNumber &&
+      !password &&
+      !semester &&
+      !year &&
+      !department &&
+      !academicSession &&
+      !addharCardNumber
+    ) {
+      return res.status(500).json({ message: "all fields are required" });
+    }
 
-  //creating user
-  const user = await userModel.create({
-    name: name,
-    email: email,
-    password: passwordHash,
-    role: "student",
-  });
+    //password hash
+    const passwordHash = await bcrypt.hash(password, 10);
 
-  //   student profile
-  const studentProfile = await studentProfileModel.create({
-    userId: user._id,
-    rollNumber: rollNumber,
-    year: year,
-    semester: semester,
-    department: department,
-    academicSession: academicSession,
-    addharCardNumber: addharCardNumber,
-  });
+    //creating user
+    const user = await userModel.create({
+      name: name,
+      email: email,
+      password: passwordHash,
+      role: "student",
+    });
 
-  res.status(201).json({
-    message: "Student created successfully",
-    user,
-    studentProfile,
-  });
+    //   student profile
+    const studentProfile = await studentProfileModel.create({
+      userId: user._id,
+      rollNumber: rollNumber,
+      year: year,
+      semester: semester,
+      department: department,
+      academicSession: academicSession,
+      addharCardNumber: addharCardNumber,
+    });
+
+    res.status(201).json({
+      message: "Student created successfully",
+      user,
+      studentProfile,
+    });
+  } catch (error) {
+    console.log(error.message);
+  }
 }
 
 //get all student
 async function getAllStudent(req, res) {
   try {
-    const { departmentId, status } = req.query;
+    const { departmentId, status, year, semester } = req.query;
 
     const filter = {};
 
-    if (departmentId) {
+    if (departmentId && departmentId !== "all") {
       filter.department = departmentId;
     }
     if (status) {
       filter.status = status;
+    }
+    if (year && year !== "all") {
+      filter.year = year;
+    }
+    if (semester && semester !== "all") {
+      filter.semester = semester;
     }
 
     const students = await studentProfileModel.find(filter).populate([
