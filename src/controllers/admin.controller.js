@@ -170,6 +170,7 @@ async function createStudent(req, res) {
       department,
       academicSession,
       addharCardNumber,
+      phoneNumber,
     } = req.body;
 
     if (
@@ -181,7 +182,8 @@ async function createStudent(req, res) {
       !year &&
       !department &&
       !academicSession &&
-      !addharCardNumber
+      !addharCardNumber &&
+      !phoneNumber
     ) {
       return res.status(500).json({ message: "all fields are required" });
     }
@@ -274,27 +276,35 @@ async function getStudentDetails(req, res) {
 
 // create teacher
 async function createTeacher(req, res) {
-  const { name, email, password, department } = req.body;
+  try {
+    const { name, email, password, department, phoneNumber } = req.body;
 
-  //password hash
-  const passwordHash = await bcrypt.hash(password, 10);
+    if (!name && !email && !password && !department && !phoneNumber) {
+      return res.status(500).json({ message: "all fields are required" });
+    }
 
-  //creating user
-  const user = await userModel.create({
-    name: name,
-    email: email,
-    password: passwordHash,
-    role: "teacher",
-  });
+    //password hash
+    const passwordHash = await bcrypt.hash(password, 10);
 
-  const teacherProfile = await teacherProfileModel.create({
-    userId: user._id,
-    department,
-  });
+    //creating user
+    const user = await userModel.create({
+      name: name,
+      email: email,
+      password: passwordHash,
+      role: "teacher",
+    });
 
-  res
-    .status(201)
-    .json({ message: "Teacher created Successfully", user, teacherProfile });
+    const teacherProfile = await teacherProfileModel.create({
+      userId: user._id,
+      department,
+    });
+
+    res
+      .status(201)
+      .json({ message: "Teacher created Successfully", user, teacherProfile });
+  } catch (error) {
+    console.log(error.message);
+  }
 }
 
 // get all teacher
