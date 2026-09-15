@@ -18,6 +18,11 @@ const subjectSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    teacherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Teacher",
+      default: null,
+    },
   },
   { timestamps: true },
 );

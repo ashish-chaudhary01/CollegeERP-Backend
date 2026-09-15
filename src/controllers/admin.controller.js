@@ -343,39 +343,47 @@ async function getTeacherDetails(req, res) {
 
 // create subject
 async function createSubject(req, res) {
-  const { subjectName, departmentId, subjectCode, semester, year } = req.body;
+  try {
+    const { subjectName, departmentId, subjectCode, semester, year } = req.body;
 
-  const subject = await subjectModel.create({
-    subjectName,
-    subjectCode,
-    departmentId,
-    semester,
-    year,
-  });
+    if (!subjectName && !departmentId && !subjectCode && !semester && !year) {
+      return res.status(500).json({ message: "All fields are reuquired" });
+    }
 
-  res.status(201).json({ message: "Subject created Successfully", subject });
+    const subject = await subjectModel.create({
+      subjectName,
+      subjectCode,
+      departmentId,
+      semester,
+      year,
+    });
+
+    res.status(201).json({ message: "Subject created Successfully", subject });
+  } catch (error) {
+    console.log(error.message);
+  }
 }
 
 // get all subject
 async function getAllSubjects(req, res) {
-  const subjectsData = await subjectAssignmentModel
+  const subjectsData = await subjectModel
     .find()
     .populate({
-      path: "subjectId",
-      populate: { path: "departmentId", select: "departmentName" },
+      path: "departmentId",
+      select: "departmentCode",
     })
     .populate({
       path: "teacherId",
-      populate: { path: "userId", select: "name" },
+      populate: { path: "userId", select: "name email" },
     });
 
   const subjects = subjectsData.map((subject) => ({
-    subjectName: subject.subjectId.subjectName,
-    subjectCode: subject.subjectId.subjectCode,
-    year: subject.subjectId.year,
-    semester: subject.subjectId.semester,
-    department: subject.subjectId.departmentId.departmentName,
-    teacherName: subject.teacherId.userId.name,
+    subjectName: subject.subjectName,
+    subjectCode: subject.subjectCode,
+    year: subject.year,
+    semester: subject.semester,
+    department: subject.departmentId?.departmentCode,
+    teacherName: subject.teacherId?.userId?.name || "Assign Teacher",
   }));
 
   res.status(200).json({ subjects });
@@ -501,15 +509,18 @@ async function getFees(req, res) {
       ],
     });
 
-    const result = feesData.map((fees) => ({
-      status: fees.status,
-      studentName: fees.studentId.userId.name,
-      studentRollNumber: fees.studentId.rollNumber,
-      email: fees.studentId.userId.email,
-      semester: fees.studentId.semester,
-      year: fees.studentId.year,
-      departmentName: fees.studentId.department.departmentName,
-    }));
+    const result = feesData
+      .filter((fees) => fees.studentId?.userId)
+      .map((fees) => ({
+        status: fees.status,
+        studentName: fees.studentId.userId.name,
+        studentRollNumber: fees.studentId.rollNumber,
+        email: fees.studentId.userId.email,
+        semester: fees.studentId.semester,
+        year: fees.studentId.year,
+        session: fees.session,
+        departmentName: fees.studentId.department?.departmentCode,
+      }));
 
     res.status(200).json(result);
   } catch (error) {
