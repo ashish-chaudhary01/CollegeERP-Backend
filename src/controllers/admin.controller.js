@@ -7,6 +7,26 @@ import subjectModel from "../models/subject.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import feesModel from "../models/fees.model.js";
 
+// update profile
+async function updateProfile(req, res) {
+  try {
+    const userId = req.user.id;
+    const { name, email } = req.body;
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(500).json({ message: "no user found" });
+    }
+
+    user.name = name;
+    user.email = email;
+    user.save();
+    res.status(200).json({ message: "user updated successfully", user });
+  } catch (error) {
+    console.log(error.message);
+  }
+}
+
 // get admin dashboard
 async function getAdminDashboard(req, res) {
   try {
@@ -418,6 +438,35 @@ async function getSubjectDetails(req, res) {
   }
 }
 
+async function updateSubject(req, res) {
+  try {
+    const { subjectId } = req.params;
+    const { subjectName, departmentId, subjectCode, semester, year } = req.body;
+
+    const subject = await subjectModel.findById(subjectId);
+
+    if (!subject) {
+      return res.status(500).json({ message: "no subject found" });
+    }
+
+    if (!subjectName && !departmentId && !subjectCode && !semester && !year) {
+      return res.status(500).json({ message: "All fields are reuquired" });
+    }
+
+    subject.subjectName = subjectName;
+    subject.subjectCode = subjectCode;
+    subject.departmentId = departmentId;
+    subject.year = year;
+    subject.semester = semester;
+
+    subject.save();
+
+    res.status(201).json({ message: "Subject updated successfully" });
+  } catch (error) {
+    console.log(error.message);
+  }
+}
+
 // assign subject to teacher
 async function assignSubject(req, res) {
   try {
@@ -558,6 +607,7 @@ async function submitFees(req, res) {
 }
 
 export default {
+  updateProfile,
   assignHod,
   getAdminDashboard,
   adminSearch,
@@ -576,5 +626,6 @@ export default {
   assignSubject,
   getSubjectDetails,
   getFees,
+  updateSubject,
   submitFees,
 };

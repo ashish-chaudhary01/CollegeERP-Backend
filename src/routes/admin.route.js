@@ -5,6 +5,13 @@ import authorizeRole from "../middlewares/role.middleware.js";
 
 const router = express.Router();
 
+router.put(
+  "/profileUpdate",
+  protect,
+  authorizeRole("admin"),
+  adminController.updateProfile,
+);
+
 router.get(
   "/dashboard",
   protect,
@@ -94,6 +101,12 @@ router.get(
   protect,
   authorizeRole("admin"),
   adminController.getSubjectDetails,
+);
+router.put(
+  "/subject/:subjectId",
+  protect,
+  authorizeRole("admin"),
+  adminController.updateSubject,
 );
 router.post(
   "/subject/:subjectId/assign-subject",
