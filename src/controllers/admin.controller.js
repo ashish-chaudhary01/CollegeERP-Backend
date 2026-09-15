@@ -5,7 +5,6 @@ import studentProfileModel from "../models/studentProfile.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
 import subjectModel from "../models/subject.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
-import subjectAssignmentModel from "../models/subjectAssignment.model.js";
 import feesModel from "../models/fees.model.js";
 
 // get admin dashboard

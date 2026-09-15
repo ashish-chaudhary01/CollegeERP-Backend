@@ -1,7 +1,6 @@
 import feesModel from "../models/fees.model.js";
 import studentProfileModel from "../models/studentProfile.model.js";
 import subjectModel from "../models/subject.model.js";
-import subjectAssignmentModel from "../models/subjectAssignment.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
 
 // search student
