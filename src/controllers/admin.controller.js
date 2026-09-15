@@ -210,6 +210,13 @@ async function createStudent(req, res) {
       addharCardNumber: addharCardNumber,
     });
 
+    // create his fees model
+    const fees = await feesModel.create({
+      studentId: studentProfile._id,
+      status: "pending",
+      session: "null",
+    });
+
     res.status(201).json({
       message: "Student created successfully",
       user,
@@ -378,6 +385,7 @@ async function getAllSubjects(req, res) {
     });
 
   const subjects = subjectsData.map((subject) => ({
+    _id: subject._id,
     subjectName: subject.subjectName,
     subjectCode: subject.subjectCode,
     year: subject.year,
@@ -413,20 +421,22 @@ async function getSubjectDetails(req, res) {
 
 // assign subject to teacher
 async function assignSubject(req, res) {
-  const { subjectId } = req.params;
-  const { teacherId } = req.body;
+  try {
+    const { subjectId } = req.params;
+    const { teacherId } = req.body;
 
-  const subject = await subjectModel.findById(subjectId);
-  if (!subject) {
-    return res.status(404).json({ message: "No subject Found" });
+    const subject = await subjectModel.findById(subjectId);
+    if (!subject) {
+      return res.status(404).json({ message: "No subject Found" });
+    }
+
+    subject.teacherId = teacherId;
+    subject.save();
+
+    res.status(201).json({ message: "Subject assigned successfully" });
+  } catch (error) {
+    console.log(error.message);
   }
-
-  await subjectAssignmentModel.create({
-    subjectId,
-    teacherId,
-  });
-
-  res.status(201).json({ message: "Subject assigned successfully" });
 }
 
 // search students
