@@ -48,6 +48,7 @@ async function loginUser(req, res) {
     .json({
       message: "User logged In successfully",
       user: {
+        _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -64,8 +65,35 @@ async function logoutUser(req, res) {
     .json({ message: "logged out successfully" });
 }
 
-// export async function changePassword(req,res){
-//   const {email,password}
-// }
+// change password
+async function changePassword(req, res) {
+  try {
+    const { userId } = req.params;
+    const { current, next, confirm } = req.body;
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(500).json({ message: "No user found" });
+    }
 
-export default { loginUser, logoutUser };
+    // is password correct
+    const isPasswordValid = await bcrypt.compare(current, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid old password" });
+    }
+
+    if (next !== confirm) {
+      return res.status(500).json({ message: "Password do not match" });
+    }
+
+    const newPassword = await bcrypt.hash(next, 10);
+    user.password = newPassword;
+    await user.save();
+    res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: "password change failed" });
+  }
+}
+
+export default { loginUser, logoutUser, changePassword };

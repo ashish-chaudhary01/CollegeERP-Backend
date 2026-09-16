@@ -127,5 +127,4 @@ router.post(
   adminController.submitFees,
 );
 router.get("/fees", protect, authorizeRole("admin"), adminController.getFees);
-
 export default router;
