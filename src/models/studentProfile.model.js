@@ -18,7 +18,10 @@ const studentProfileSchema = new mongoose.Schema(
       required: true,
     },
     profilePictureUrl: String,
+    profilePictureFileId: String,
     fatherName: String,
+    phoneNumber: String,
+    address: String,
     academicSession: { type: String, required: true },
     addharCardNumber: { type: String, unique: true },
     department: {

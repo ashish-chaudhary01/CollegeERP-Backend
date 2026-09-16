@@ -12,6 +12,9 @@ const teacherProfileSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    profilePictureFileId: { type: String, default: "" },
+    phoneNumber: { type: String, default: "" },
+    address: { type: String, default: "" },
     designation: {
       type: String,
       default: "Teacher",

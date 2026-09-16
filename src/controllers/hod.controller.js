@@ -4,6 +4,8 @@ import subjectModel from "../models/subject.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
 import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
+import studentAttendanceModel from "../models/studentAttendance.model.js";
+import departmentModel from "../models/department.model.js";
 
 // search student
 async function searchStudent(req, res) {
@@ -38,6 +40,49 @@ async function searchStudent(req, res) {
   }
 }
 
+async function getHodProfile(req, res) {
+  const profile = await teacherProfileModel
+    .findOne({ userId: req.user.id })
+    .populate([
+      { path: "userId", select: "name email role status" },
+      { path: "department", select: "departmentName departmentCode" },
+    ]);
+  if (!profile)
+    return res.status(404).json({ message: "HOD profile not found" });
+  res.json({ profile });
+}
+
+async function updateHodProfile(req, res) {
+  try {
+    const {
+      name,
+      email,
+      phoneNumber,
+      address,
+      profilePictureUrl,
+      designation,
+    } = req.body;
+    const profile = await teacherProfileModel
+      .findOneAndUpdate(
+        { userId: req.user.id },
+        { phoneNumber, address, profilePictureUrl, designation },
+        { new: true, runValidators: true },
+      )
+      .populate([
+        { path: "userId", select: "name email role status" },
+        { path: "department", select: "departmentName departmentCode" },
+      ]);
+    await userModel.findByIdAndUpdate(
+      req.user.id,
+      { name, email },
+      { runValidators: true },
+    );
+    res.json({ profile });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+}
+
 // get hod dashboard
 async function getHodDashboard(req, res) {
   try {
@@ -60,7 +105,10 @@ async function getHodDashboard(req, res) {
       department: departmentId,
     });
     const totalSubjects = await subjectModel.countDocuments({
-      department: departmentId,
+      departmentId: departmentId,
+    });
+    const totalDepartments = await departmentModel.countDocuments({
+      _id: departmentId,
     });
 
     const currentYear = new Date().getFullYear();
@@ -87,7 +135,7 @@ async function getHodDashboard(req, res) {
       totalClasses === 0 ? 0 : (totalPresent / totalClasses) * 100;
 
     res.status(200).json({
-      totalStudents: studentIds.length(),
+      totalStudents: studentIds.length,
       totalTeachers,
       totalDepartments,
       totalSubjects,
@@ -174,7 +222,7 @@ async function getStudents(req, res) {
     const students = await studentProfileModel
       .find({ department: departmentId })
       .populate("userId", "name email")
-      .populate("department", "name code");
+      .populate("department", "departmentName departmentCode");
 
     res.status(200).json({ students });
   } catch (error) {
@@ -187,20 +235,38 @@ async function getStudents(req, res) {
 async function getStudentDetails(req, res) {
   try {
     const { studentId } = req.params;
+    const hodProfile = await teacherProfileModel.findOne({
+      userId: req.user.id,
+    });
     const student = await studentProfileModel
-      .findById(studentId)
+      .findOne({ _id: studentId, department: hodProfile?.department })
       .populate([
         { path: "userId", select: "name email" },
         { path: "department" },
       ]);
 
-    if (!student) {
-      res.status(404).json({ message: "No student found" });
-    }
+    if (!student) return res.status(404).json({ message: "No student found" });
 
     const fees = await feesModel.findOne({ studentId: studentId });
+    const attendance = await studentAttendanceModel
+      .find({ student: studentId })
+      .lean();
+    const present = attendance.filter(
+      (record) => record.status === "present",
+    ).length;
+    const total = attendance.filter((record) =>
+      ["present", "absent", "leave"].includes(record.status),
+    ).length;
 
-    res.status(200).json({ student, fees });
+    res.status(200).json({
+      student,
+      fees: fees ? [fees] : [],
+      attendance: {
+        present,
+        total,
+        percentage: total ? Number(((present / total) * 100).toFixed(1)) : 0,
+      },
+    });
   } catch (error) {
     console.log(error.message);
   }
@@ -277,8 +343,11 @@ async function getTeacherDetails(req, res) {
   try {
     const { teacherId } = req.params;
 
+    const hodProfile = await teacherProfileModel.findOne({
+      userId: req.user.id,
+    });
     const teacher = await teacherProfileModel
-      .findById(teacherId)
+      .findOne({ _id: teacherId, department: hodProfile?.department })
       .populate([
         { path: "userId", select: "name email" },
         { path: "department" },
@@ -291,6 +360,47 @@ async function getTeacherDetails(req, res) {
     res.status(200).json({ teacher, subjects });
   } catch (error) {
     console.log("Error in fetching teacher details", error.message);
+  }
+}
+
+async function updateTeacherDetails(req, res) {
+  try {
+    const hodProfile = await teacherProfileModel.findOne({
+      userId: req.user.id,
+    });
+    const { teacherId } = req.params;
+    const {
+      name,
+      email,
+      phoneNumber,
+      address,
+      designation,
+      profilePictureUrl,
+      status,
+    } = req.body;
+    const teacher = await teacherProfileModel
+      .findOneAndUpdate(
+        { _id: teacherId, department: hodProfile?.department },
+        { phoneNumber, address, designation, profilePictureUrl, status },
+        { new: true, runValidators: true },
+      )
+      .populate([
+        { path: "userId", select: "name email role status" },
+        { path: "department" },
+      ]);
+    if (!teacher)
+      return res
+        .status(404)
+        .json({ message: "Teacher not found in your department" });
+    await userModel.findByIdAndUpdate(
+      teacher.userId,
+      { name, email },
+      { runValidators: true },
+    );
+    const subjects = await subjectModel.find({ teacherId });
+    res.json({ message: "Teacher details updated", teacher, subjects });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 }
 
@@ -383,32 +493,56 @@ async function getStudentFees(req, res) {
     // hod department id
     const departmentId = hodProfile.department;
 
-    const { session } = req.params;
-    // fess of same department students
-    const fees = await feesModel.find({ session: session }).populate({
-      path: "studentId",
-      match: {
-        ...(departmentId && {
-          department: departmentId,
-        }),
-      },
-      populate: [
-        {
-          path: "userId",
-          select: "name email",
-        },
-        {
-          path: "department",
-          select: "name code",
-        },
-      ],
+    const session =
+      req.query.session ||
+      `${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`;
+    const students = await studentProfileModel
+      .find({ department: departmentId })
+      .populate("userId", "name email");
+    const fees = await feesModel.find({
+      session,
+      studentId: { $in: students.map((student) => student._id) },
     });
-    res.status(200).json({ fees });
+    const feeByStudent = new Map(
+      fees.map((fee) => [String(fee.studentId), fee]),
+    );
+    res.status(200).json({
+      fees: students.map((student) => ({
+        id: student._id,
+        status: feeByStudent.get(String(student._id))?.status || "pending",
+        session,
+        studentId: student,
+      })),
+    });
   } catch (error) {
     console.log(error.message);
     res
       .status(500)
       .json({ message: "Error in hod controller at getStudentFees" });
+  }
+}
+
+async function submitFees(req, res) {
+  try {
+    const profile = await teacherProfileModel.findOne({ userId: req.user.id });
+    const { studentId } = req.params;
+    const { session, status = "paid" } = req.body;
+    const student = await studentProfileModel.findOne({
+      _id: studentId,
+      department: profile?.department,
+    });
+    if (!profile || !student)
+      return res
+        .status(403)
+        .json({ message: "Student is outside your department" });
+    const fee = await feesModel.findOneAndUpdate(
+      { studentId, session },
+      { $set: { status } },
+      { new: true, upsert: true },
+    );
+    res.status(200).json({ message: "Fee status updated", fee });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 }
 
@@ -421,8 +555,12 @@ export default {
   addTeacher,
   getTeachers,
   getTeacherDetails,
+  updateTeacherDetails,
   addSubject,
   getSubjects,
   getSubjectDetails,
   getStudentFees,
+  submitFees,
+  getHodProfile,
+  updateHodProfile,
 };

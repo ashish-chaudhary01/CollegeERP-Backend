@@ -123,9 +123,24 @@ async function getAllDepartment(req, res) {
     path: "hod",
     populate: { path: "userId", select: "name email" },
   });
+  const departmentStats = await Promise.all(
+    departments.map(async (department) => ({
+      ...department.toObject(),
+      studentCount: await studentProfileModel.countDocuments({
+        department: department._id,
+      }),
+      teacherCount: await teacherProfileModel.countDocuments({
+        department: department._id,
+      }),
+      activeTeacherCount: await teacherProfileModel.countDocuments({
+        department: department._id,
+        status: "active",
+      }),
+    })),
+  );
 
   res.status(200).json({
-    departments,
+    departments: departmentStats,
   });
 }
 
@@ -170,6 +185,11 @@ async function assignHod(req, res) {
 
   if (!teacher) {
     return res.status(404).json({ message: "Teacher not found" });
+  }
+  if (String(teacher.department) !== String(departmentId)) {
+    return res
+      .status(400)
+      .json({ message: "HOD must belong to this department" });
   }
 
   const previousHod = await teacherProfileModel.findById(department.hod);
@@ -303,15 +323,77 @@ async function getStudentDetails(req, res) {
         { path: "department" },
       ]);
 
-    if (!student) {
-      res.status(404).json({ message: "No student found" });
-    }
+    if (!student) return res.status(404).json({ message: "No student found" });
 
-    const fees = await feesModel.findOne({ studentId: studentId });
+    const fees = await feesModel
+      .find({ studentId: studentId })
+      .sort({ session: -1 });
+    const attendance = await studentAttendanceModel
+      .find({ student: studentId })
+      .lean();
+    const present = attendance.filter(
+      (record) => record.status === "present",
+    ).length;
+    const total = attendance.filter((record) =>
+      ["present", "absent", "leave"].includes(record.status),
+    ).length;
 
-    res.status(200).json({ student, fees });
+    res.status(200).json({
+      student,
+      fees,
+      attendance: {
+        present,
+        total,
+        percentage: total ? Number(((present / total) * 100).toFixed(1)) : 0,
+      },
+    });
   } catch (error) {
     console.log(error.message);
+  }
+}
+
+async function updateStudentDetails(req, res) {
+  try {
+    const { studentId } = req.params;
+    const {
+      name,
+      email,
+      rollNumber,
+      year,
+      semester,
+      academicSession,
+      phoneNumber,
+      address,
+      fatherName,
+      profilePictureUrl,
+      status,
+      department,
+    } = req.body;
+    const student = await studentProfileModel.findByIdAndUpdate(
+      studentId,
+      {
+        rollNumber,
+        year,
+        semester,
+        academicSession,
+        phoneNumber,
+        address,
+        fatherName,
+        profilePictureUrl,
+        status,
+        department,
+      },
+      { new: true, runValidators: true },
+    );
+    if (!student) return res.status(404).json({ message: "Student not found" });
+    await userModel.findByIdAndUpdate(
+      student.userId,
+      { name, email },
+      { runValidators: true },
+    );
+    res.json({ message: "Student details updated", student });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 }
 
@@ -377,6 +459,49 @@ async function getTeacherDetails(req, res) {
     res.status(200).json({ teacher, subjects });
   } catch (error) {
     console.log("Error in fetching teacher details", error.message);
+  }
+}
+
+async function updateTeacherDetails(req, res) {
+  try {
+    const { teacherId } = req.params;
+    const {
+      name,
+      email,
+      phoneNumber,
+      address,
+      designation,
+      profilePictureUrl,
+      status,
+      department,
+    } = req.body;
+    const teacher = await teacherProfileModel
+      .findByIdAndUpdate(
+        teacherId,
+        {
+          phoneNumber,
+          address,
+          designation,
+          profilePictureUrl,
+          status,
+          department,
+        },
+        { new: true, runValidators: true },
+      )
+      .populate([
+        { path: "userId", select: "name email role status" },
+        { path: "department" },
+      ]);
+    if (!teacher) return res.status(404).json({ message: "Teacher not found" });
+    await userModel.findByIdAndUpdate(
+      teacher.userId,
+      { name, email },
+      { runValidators: true },
+    );
+    const subjects = await subjectModel.find({ teacherId });
+    res.json({ message: "Teacher details updated", teacher, subjects });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 }
 
@@ -527,18 +652,21 @@ async function adminSearch(req, res) {
   }
 }
 
-// get attendance whole
-async function getAttendance(req, res) {}
-
 async function getTimetable(req, res) {
   try {
     const filter = {};
     if (req.query.department && req.query.department !== "all")
       filter.departmentId = req.query.department;
-    if (req.query.day && req.query.day !== "all") filter.day = req.query.day;
+    if (req.query.semester && req.query.semester !== "all")
+      filter.semester = Number(req.query.semester);
     const subjects = await subjectModel.find(filter).select("_id");
+    const timetableFilter = {
+      subject: { $in: subjects.map((subject) => subject._id) },
+    };
+    if (req.query.day && req.query.day !== "all")
+      timetableFilter.day = req.query.day;
     const timetable = await timetableModel
-      .find({ subject: { $in: subjects.map((subject) => subject._id) } })
+      .find(timetableFilter)
       .populate({
         path: "subject",
         select: "subjectName subjectCode year semester",
@@ -578,14 +706,12 @@ async function createTimetable(req, res) {
     });
     res.status(201).json({ message: "Timetable slot added", timetable });
   } catch (error) {
-    res
-      .status(error.code === 11000 ? 409 : 500)
-      .json({
-        message:
-          error.code === 11000
-            ? "This subject already has a slot at that day and time"
-            : error.message,
-      });
+    res.status(error.code === 11000 ? 409 : 500).json({
+      message:
+        error.code === 11000
+          ? "This subject already has a slot at that day and time"
+          : error.message,
+    });
   }
 }
 
@@ -734,11 +860,9 @@ async function getAttendanceAnalytics(req, res) {
 async function getFees(req, res) {
   try {
     const { department, semester, feeStatus, status } = req.query;
-    const feeFilter = {};
-
-    if (feeStatus && feeStatus !== "all") {
-      feeFilter.status = feeStatus;
-    }
+    const session =
+      req.query.session ||
+      `${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`;
 
     const studentFilter = {};
 
@@ -761,40 +885,32 @@ async function getFees(req, res) {
       studentFilter.status = status;
     }
 
-    if (Object.keys(studentFilter).length > 0) {
-      const students = await studentProfileModel
-        .find(studentFilter)
-        .select("_id");
-
-      feeFilter.studentId = { $in: students.map((student) => student._id) };
-    }
-
-    const feesData = await feesModel.find(feeFilter).populate({
-      path: "studentId",
-      populate: [
-        {
-          path: "userId",
-          select: "name email",
-        },
-        {
-          path: "department",
-          select: "departmentName",
-        },
-      ],
+    const students = await studentProfileModel.find(studentFilter).populate([
+      { path: "userId", select: "name email" },
+      { path: "department", select: "departmentName departmentCode" },
+    ]);
+    const feesData = await feesModel.find({
+      session,
+      studentId: { $in: students.map((student) => student._id) },
     });
-
-    const result = feesData
-      .filter((fees) => fees.studentId?.userId)
-      .map((fees) => ({
-        status: fees.status,
-        studentName: fees.studentId.userId.name,
-        studentRollNumber: fees.studentId.rollNumber,
-        email: fees.studentId.userId.email,
-        semester: fees.studentId.semester,
-        year: fees.studentId.year,
-        session: fees.session,
-        departmentName: fees.studentId.department?.departmentCode,
-      }));
+    const feeByStudent = new Map(
+      feesData.map((fee) => [String(fee.studentId), fee]),
+    );
+    const result = students
+      .map((student) => ({
+        id: student._id,
+        status: feeByStudent.get(String(student._id))?.status || "pending",
+        studentName: student.userId?.name || "Unknown",
+        studentRollNumber: student.rollNumber,
+        email: student.userId?.email,
+        semester: student.semester,
+        year: student.year,
+        session,
+        departmentName: student.department?.departmentCode,
+      }))
+      .filter(
+        (fee) => feeStatus === "all" || !feeStatus || fee.status === feeStatus,
+      );
 
     res.status(200).json(result);
   } catch (error) {
@@ -809,11 +925,11 @@ async function submitFees(req, res) {
     const { studentId } = req.query;
     const { session, status } = req.body;
 
-    const fees = await feesModel.create({
-      studentId,
-      session,
-      status,
-    });
+    const fees = await feesModel.findOneAndUpdate(
+      { studentId, session },
+      { $set: { status } },
+      { new: true, upsert: true },
+    );
 
     res.status(201).json({ message: "Fees submitted successfully" });
   } catch (error) {
@@ -833,12 +949,13 @@ export default {
   createStudent,
   getAllStudent,
   getStudentDetails,
+  updateStudentDetails,
   createTeacher,
   getAllTeacher,
   getTeacherDetails,
+  updateTeacherDetails,
   createSubject,
   getAllSubjects,
-  getAttendance,
   getAttendanceAnalytics,
   getTimetable,
   createTimetable,

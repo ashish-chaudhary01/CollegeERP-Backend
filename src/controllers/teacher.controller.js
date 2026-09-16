@@ -4,6 +4,7 @@ import subjectModel from "../models/subject.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import timetableModel from "../models/timetable.model.js";
+import userModel from "../models/user.model.js";
 
 // search student
 async function searchStudent(req, res) {
@@ -132,20 +133,40 @@ async function getStudents(req, res) {
 async function getStudentDetails(req, res) {
   try {
     const { studentId } = req.params;
+    const teacherProfile = await teacherProfileModel.findOne({
+      userId: req.user.id,
+    });
     const student = await studentProfileModel
-      .findById(studentId)
+      .findOne({ _id: studentId, department: teacherProfile?.department })
       .populate([
         { path: "userId", select: "name email" },
         { path: "department" },
       ]);
 
-    if (!student) {
-      res.status(404).json({ message: "No student found" });
-    }
+    if (!student) return res.status(404).json({ message: "No student found" });
 
     const fees = await feesModel.findOne({ studentId: studentId });
+    const attendance = await studentAttendanceModel
+      .find({ student: studentId })
+      .lean();
+    const present = attendance.filter(
+      (record) => record.status === "present",
+    ).length;
+    const total = attendance.filter((record) =>
+      ["present", "absent", "leave"].includes(record.status),
+    ).length;
 
-    res.status(200).json({ student, fees });
+    res
+      .status(200)
+      .json({
+        student,
+        fees: fees ? [fees] : [],
+        attendance: {
+          present,
+          total,
+          percentage: total ? Number(((present / total) * 100).toFixed(1)) : 0,
+        },
+      });
   } catch (error) {
     console.log(error.message);
   }
@@ -173,6 +194,49 @@ async function getTeacherSubject(req, res) {
     res.status(200).json({ teacherSubjects });
   } catch (error) {
     console.log(error.message);
+  }
+}
+
+async function getTeacherProfile(req, res) {
+  const profile = await teacherProfileModel
+    .findOne({ userId: req.user.id })
+    .populate([
+      { path: "userId", select: "name email role status" },
+      { path: "department", select: "departmentName departmentCode" },
+    ]);
+  if (!profile)
+    return res.status(404).json({ message: "Teacher profile not found" });
+  res.json({ profile });
+}
+
+async function updateTeacherProfile(req, res) {
+  try {
+    const {
+      name,
+      email,
+      phoneNumber,
+      address,
+      profilePictureUrl,
+      designation,
+    } = req.body;
+    const profile = await teacherProfileModel
+      .findOneAndUpdate(
+        { userId: req.user.id },
+        { phoneNumber, address, profilePictureUrl, designation },
+        { new: true, runValidators: true },
+      )
+      .populate([
+        { path: "userId", select: "name email role status" },
+        { path: "department", select: "departmentName departmentCode" },
+      ]);
+    await userModel.findByIdAndUpdate(
+      req.user.id,
+      { name, email },
+      { runValidators: true },
+    );
+    res.json({ profile });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 }
 
@@ -355,4 +419,6 @@ export default {
   getSubjectDetails,
   getStudentFees,
   getTeacherTimetable,
+  getTeacherProfile,
+  updateTeacherProfile,
 };

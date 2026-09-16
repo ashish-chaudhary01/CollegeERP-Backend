@@ -11,18 +11,11 @@ router.put(
   authorizeRole("admin"),
   adminController.updateProfile,
 );
-
 router.get(
   "/dashboard",
   protect,
   authorizeRole("admin"),
   adminController.getAdminDashboard,
-);
-router.get(
-  "/search",
-  protect,
-  authorizeRole("admin"),
-  adminController.adminSearch,
 );
 router.get(
   "/departments",
@@ -66,6 +59,12 @@ router.get(
   authorizeRole("admin"),
   adminController.getStudentDetails,
 );
+router.put(
+  "/student/:studentId",
+  protect,
+  authorizeRole("admin"),
+  adminController.updateStudentDetails,
+);
 router.get(
   "/teachers",
   protect,
@@ -83,6 +82,12 @@ router.get(
   protect,
   authorizeRole("admin"),
   adminController.getTeacherDetails,
+);
+router.put(
+  "/teacher/:teacherId",
+  protect,
+  authorizeRole("admin"),
+  adminController.updateTeacherDetails,
 );
 router.get(
   "/subjects",
@@ -113,12 +118,6 @@ router.post(
   protect,
   authorizeRole("admin"),
   adminController.assignSubject,
-);
-router.get(
-  "/attendance",
-  protect,
-  authorizeRole("admin"),
-  adminController.getAttendance,
 );
 router.get(
   "/attendance/analytics",

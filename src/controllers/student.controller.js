@@ -3,6 +3,7 @@ import studentProfileModel from "../models/studentProfile.model.js";
 import subjectModel from "../models/subject.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import teacherProfileModel from "../models/teacherProfile.model.js";
+import userModel from "../models/user.model.js";
 
 // get student dashboard
 async function studentDashboard(req, res) {}
@@ -18,13 +19,63 @@ async function studentProfile(req, res) {
         { path: "department" },
       ]);
 
-    if (!student) {
-      res.status(404).json({ message: "No student found" });
-    }
+    if (!student) return res.status(404).json({ message: "No student found" });
 
-    res.status(200).json({ student });
+    const fees = await feesModel
+      .find({ studentId: student._id })
+      .sort({ session: -1 });
+    const attendanceRecords = await studentAttendanceModel
+      .find({ student: student._id })
+      .lean();
+    const present = attendanceRecords.filter(
+      (record) => record.status === "present",
+    ).length;
+    const total = attendanceRecords.filter((record) =>
+      ["present", "absent", "leave"].includes(record.status),
+    ).length;
+
+    res
+      .status(200)
+      .json({
+        student,
+        fees,
+        attendance: {
+          present,
+          total,
+          percentage: total ? Number(((present / total) * 100).toFixed(1)) : 0,
+        },
+      });
   } catch (error) {
     console.log(error.message);
+  }
+}
+
+async function updateStudentProfile(req, res) {
+  try {
+    const { name, email, phoneNumber, address, profilePictureUrl, fatherName } =
+      req.body;
+    const user = await userModel
+      .findByIdAndUpdate(
+        req.user.id,
+        { name, email },
+        { new: true, runValidators: true },
+      )
+      .select("-password");
+    const student = await studentProfileModel
+      .findOneAndUpdate(
+        { userId: req.user.id },
+        { phoneNumber, address, profilePictureUrl, fatherName },
+        { new: true, runValidators: true },
+      )
+      .populate([
+        { path: "userId", select: "name email role status" },
+        { path: "department", select: "departmentName departmentCode" },
+      ]);
+    if (!user || !student)
+      return res.status(404).json({ message: "Student profile not found" });
+    res.json({ user, student });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 }
 
@@ -146,4 +197,5 @@ export default {
   getSubjectDetails,
   getStudentFees,
   getStudentAttendance,
+  updateStudentProfile,
 };

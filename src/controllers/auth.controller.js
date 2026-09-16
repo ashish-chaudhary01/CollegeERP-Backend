@@ -69,6 +69,11 @@ async function logoutUser(req, res) {
 async function changePassword(req, res) {
   try {
     const { userId } = req.params;
+    if (!req.user || String(req.user.id) !== String(userId)) {
+      return res
+        .status(403)
+        .json({ message: "You can only change your own password" });
+    }
     const { current, next, confirm } = req.body;
     const user = await userModel.findById(userId);
     if (!user) {

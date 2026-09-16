@@ -1,4 +1,5 @@
 import express from "express";
+import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRoutes from "./routes/auth.route.js";
@@ -7,21 +8,33 @@ import teacherRoutes from "./routes/teacher.route.js";
 import hodRoutes from "./routes/hod.route.js";
 import adminRoutes from "./routes/admin.route.js";
 
+dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: (origin, callback) => {
+      const allowedOrigins = (
+        process.env.FRONTEND_URL || "http://localhost:5173"
+      )
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (!origin || allowedOrigins.includes(origin))
+        return callback(null, true);
+      return callback(new Error("Origin is not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
 
 // cerp health api
 app.get("/api/health", (req, res) => {
-  res.send({
+  res.set("Cache-Control", "no-store").send({
     success: true,
     message: "CERP(College ERP) api is running",
+    timestamp: new Date().toISOString(),
   });
 });
 

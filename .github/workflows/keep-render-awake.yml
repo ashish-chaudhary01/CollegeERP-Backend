@@ -1,0 +1,17 @@
+name: Keep Render backend awake
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render health endpoint
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          test -n "$BACKEND_URL"
+          curl --fail --silent --show-error --max-time 30 "$BACKEND_URL/api/health"
