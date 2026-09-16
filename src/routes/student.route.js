@@ -8,5 +8,6 @@ router.get("/student/:studentId", protect, studentController.studentProfile);
 router.get("/subjects", protect, studentController.getStudentSubjects);
 router.get("/subject/:subjectId", protect, studentController.getSubjectDetails);
 router.get("/fees", protect, studentController.getStudentFees);
+router.get("/attendance", protect, studentController.getStudentAttendance);
 
 export default router;

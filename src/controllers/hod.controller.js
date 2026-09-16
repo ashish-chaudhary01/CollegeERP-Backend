@@ -286,9 +286,7 @@ async function getTeacherDetails(req, res) {
     if (!teacher) {
       return res.status(404).json({ message: "No teacher found" });
     }
-    const subjects = await subjectAssignmentModel
-      .find({ teacherId: teacherId })
-      .populate({ path: "subjectId" });
+    const subjects = await subjectModel.find({ teacherId: teacherId });
 
     res.status(200).json({ teacher, subjects });
   } catch (error) {
@@ -360,9 +358,11 @@ async function getSubjectDetails(req, res) {
       return res.status(404).json({ message: "Subject not found" });
     }
 
-    const assignedTeacher = await subjectAssignmentModel
-      .find({ subjectId: subjectId })
-      .populate({ path: "teacherId", populate: [{ path: "userId" }] });
+    const assignedTeacher = subject.teacherId
+      ? await teacherProfileModel
+          .findById(subject.teacherId)
+          .populate({ path: "userId", select: "name email" })
+      : null;
 
     res.status(200).json({ subject, assignedTeacher });
   } catch (error) {

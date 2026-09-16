@@ -1,6 +1,8 @@
 import feesModel from "../models/fees.model.js";
 import studentProfileModel from "../models/studentProfile.model.js";
 import subjectModel from "../models/subject.model.js";
+import studentAttendanceModel from "../models/studentAttendance.model.js";
+import teacherProfileModel from "../models/teacherProfile.model.js";
 
 // get student dashboard
 async function studentDashboard(req, res) {}
@@ -62,12 +64,11 @@ async function getSubjectDetails(req, res) {
       return res.status(404).json({ message: "Subject not found" });
     }
 
-    const assignedTeacher = await subjectAssignmentModel
-      .find({ subjectId: subjectId })
-      .populate({
-        path: "teacherId",
-        populate: [{ path: "userId", select: "name" }],
-      });
+    const assignedTeacher = subject.teacherId
+      ? await teacherProfileModel
+          .findById(subject.teacherId)
+          .populate({ path: "userId", select: "name" })
+      : null;
 
     res.status(200).json({ subject, assignedTeacher });
   } catch (error) {
@@ -99,10 +100,50 @@ async function getStudentFees(req, res) {
   }
 }
 
+async function getStudentAttendance(req, res) {
+  try {
+    const student = await studentProfileModel.findOne({ userId: req.user.id });
+    if (!student)
+      return res.status(404).json({ message: "student Profile Not Found" });
+    const records = await studentAttendanceModel
+      .find({ student: student._id })
+      .populate("subject", "subjectName subjectCode")
+      .sort({ date: -1 })
+      .lean();
+    const grouped = new Map();
+    records.forEach((record) => {
+      const key = String(record.subject?._id);
+      if (!grouped.has(key))
+        grouped.set(key, {
+          subject: record.subject,
+          present: 0,
+          absent: 0,
+          leave: 0,
+          records: [],
+        });
+      const row = grouped.get(key);
+      row[record.status] += 1;
+      row.records.push({ date: record.date, status: record.status });
+    });
+    const attendance = [...grouped.values()].map((row) => ({
+      ...row,
+      percentage: Number(
+        (
+          (row.present / (row.present + row.absent + row.leave)) * 100 || 0
+        ).toFixed(1),
+      ),
+    }));
+    res.json({ attendance });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
 export default {
   studentDashboard,
   studentProfile,
   getStudentSubjects,
   getSubjectDetails,
   getStudentFees,
+  getStudentAttendance,
 };

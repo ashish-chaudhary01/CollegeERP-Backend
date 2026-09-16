@@ -6,6 +6,7 @@ import teacherProfileModel from "../models/teacherProfile.model.js";
 import subjectModel from "../models/subject.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import feesModel from "../models/fees.model.js";
+import timetableModel from "../models/timetable.model.js";
 
 // update profile
 async function updateProfile(req, res) {
@@ -57,6 +58,18 @@ async function getAdminDashboard(req, res) {
     const overallAttendance =
       totalClasses === 0 ? 0 : (totalPresent / totalClasses) * 100;
 
+    const today = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ][new Date().getDay()];
+    const todayClasses = await timetableModel.countDocuments({ day: today });
+    const pendingFees = await feesModel.countDocuments({ status: "pending" });
+
     res.status(200).json({
       totalStudents,
       totalTeachers,
@@ -67,6 +80,8 @@ async function getAdminDashboard(req, res) {
         absent: totalabsent,
         overall: Number(overallAttendance).toFixed(2),
       },
+      todayClasses,
+      pendingFees,
     });
   } catch (error) {
     console.log("Error in admin dashboard", error.message);
@@ -357,9 +372,7 @@ async function getTeacherDetails(req, res) {
     if (!teacher) {
       return res.status(404).json({ message: "No teacher found" });
     }
-    const subjects = await subjectAssignmentModel
-      .find({ teacherId: teacherId })
-      .populate({ path: "subjectId" });
+    const subjects = await subjectModel.find({ teacherId: teacherId });
 
     res.status(200).json({ teacher, subjects });
   } catch (error) {
@@ -410,6 +423,7 @@ async function getAllSubjects(req, res) {
     year: subject.year,
     semester: subject.semester,
     department: subject.departmentId?.departmentCode,
+    departmentId: subject.departmentId?._id,
     teacherName: subject.teacherId?.userId?.name || "Assign Teacher",
   }));
 
@@ -428,9 +442,11 @@ async function getSubjectDetails(req, res) {
       return res.status(404).json({ message: "Subject not found" });
     }
 
-    const assignedTeacher = await subjectAssignmentModel
-      .find({ subjectId: subjectId })
-      .populate({ path: "teacherId", populate: [{ path: "userId" }] });
+    const assignedTeacher = subject.teacherId
+      ? await teacherProfileModel
+          .findById(subject.teacherId)
+          .populate({ path: "userId", select: "name email" })
+      : null;
 
     res.status(200).json({ subject, assignedTeacher });
   } catch (error) {
@@ -513,6 +529,206 @@ async function adminSearch(req, res) {
 
 // get attendance whole
 async function getAttendance(req, res) {}
+
+async function getTimetable(req, res) {
+  try {
+    const filter = {};
+    if (req.query.department && req.query.department !== "all")
+      filter.departmentId = req.query.department;
+    if (req.query.day && req.query.day !== "all") filter.day = req.query.day;
+    const subjects = await subjectModel.find(filter).select("_id");
+    const timetable = await timetableModel
+      .find({ subject: { $in: subjects.map((subject) => subject._id) } })
+      .populate({
+        path: "subject",
+        select: "subjectName subjectCode year semester",
+        populate: {
+          path: "departmentId",
+          select: "departmentName departmentCode",
+        },
+      })
+      .sort({ day: 1, startTime: 1 });
+    res.json({ timetable });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+async function createTimetable(req, res) {
+  try {
+    const { subjectId, day, startTime, endTime } = req.body;
+    if (!subjectId || !day || !startTime || !endTime || startTime >= endTime)
+      return res
+        .status(400)
+        .json({ message: "Valid subject, day and time range are required" });
+    const subject = await subjectModel.findById(subjectId);
+    if (!subject) return res.status(404).json({ message: "Subject not found" });
+    const timetable = await timetableModel.create({
+      subject: subject._id,
+      day,
+      startTime,
+      endTime,
+    });
+    await timetable.populate({
+      path: "subject",
+      populate: {
+        path: "departmentId",
+        select: "departmentName departmentCode",
+      },
+    });
+    res.status(201).json({ message: "Timetable slot added", timetable });
+  } catch (error) {
+    res
+      .status(error.code === 11000 ? 409 : 500)
+      .json({
+        message:
+          error.code === 11000
+            ? "This subject already has a slot at that day and time"
+            : error.message,
+      });
+  }
+}
+
+async function deleteTimetable(req, res) {
+  try {
+    const deleted = await timetableModel.findByIdAndDelete(
+      req.params.timetableId,
+    );
+    if (!deleted)
+      return res.status(404).json({ message: "Timetable slot not found" });
+    res.json({ message: "Timetable slot removed" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}
+
+async function getAttendanceAnalytics(req, res) {
+  try {
+    const currentYear = new Date().getFullYear();
+    const { department, from, to } = req.query;
+    const startDate = from || `${currentYear}-01-01`;
+    const endDate = to || `${currentYear}-12-31`;
+    const studentFilter =
+      department && department !== "all" ? { department } : {};
+    const students = await studentProfileModel
+      .find(studentFilter)
+      .populate("userId", "name email")
+      .populate("department", "departmentName departmentCode")
+      .lean();
+    const studentIds = students.map((student) => student._id);
+    const records = await studentAttendanceModel
+      .find({
+        student: { $in: studentIds },
+        date: { $gte: startDate, $lte: endDate },
+      })
+      .populate("subject", "subjectName subjectCode")
+      .lean();
+
+    const byStudent = new Map();
+    const byDepartment = new Map();
+    const byDate = new Map();
+    const bySubject = new Map();
+    const addBucket = (bucket, key) => {
+      if (!bucket.has(String(key)))
+        bucket.set(String(key), { present: 0, absent: 0, leave: 0 });
+      return bucket.get(String(key));
+    };
+    records.forEach((record) => {
+      const student = students.find(
+        (item) => String(item._id) === String(record.student),
+      );
+      if (!student) return;
+      [
+        addBucket(byStudent, student._id),
+        addBucket(byDepartment, student.department?._id || "unknown"),
+        addBucket(byDate, record.date),
+        addBucket(bySubject, record.subject?._id || "unknown"),
+      ].forEach((bucket) => {
+        bucket[record.status] += 1;
+      });
+    });
+    const percentage = (bucket) => {
+      const total = bucket.present + bucket.absent + bucket.leave;
+      return total ? Number(((bucket.present / total) * 100).toFixed(1)) : 0;
+    };
+    const studentRows = students
+      .map((student) => {
+        const stats = byStudent.get(String(student._id)) || {
+          present: 0,
+          absent: 0,
+          leave: 0,
+        };
+        return {
+          id: student._id,
+          name: student.userId?.name || "Unknown",
+          rollNumber: student.rollNumber,
+          department:
+            student.department?.departmentCode ||
+            student.department?.departmentName ||
+            "-",
+          ...stats,
+          percentage: percentage(stats),
+        };
+      })
+      .sort((a, b) => a.percentage - b.percentage);
+    const departmentRows = students.reduce((rows, student) => {
+      const id = String(student.department?._id || "unknown");
+      const stats = byDepartment.get(id) || { present: 0, absent: 0, leave: 0 };
+      if (!rows.some((row) => row.id === id))
+        rows.push({
+          id,
+          name:
+            student.department?.departmentCode ||
+            student.department?.departmentName ||
+            "Unknown",
+          ...stats,
+          percentage: percentage(stats),
+        });
+      return rows;
+    }, []);
+    const subjectRows = [...bySubject.entries()].map(([id, stats]) => {
+      const subject = records.find(
+        (record) => String(record.subject?._id) === id,
+      )?.subject;
+      return {
+        id,
+        name: subject?.subjectCode || subject?.subjectName || "Unknown",
+        ...stats,
+        percentage: percentage(stats),
+      };
+    });
+    const dailyRows = [...byDate.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, stats]) => ({
+        date,
+        ...stats,
+        percentage: percentage(stats),
+      }));
+    const totals = records.reduce(
+      (sum, record) => {
+        sum[record.status] += 1;
+        return sum;
+      },
+      { present: 0, absent: 0, leave: 0 },
+    );
+    res.status(200).json({
+      range: { from: startDate, to: endDate },
+      totals: { ...totals, percentage: percentage(totals) },
+      departments: departmentRows,
+      subjects: subjectRows,
+      daily: dailyRows,
+      students: studentRows,
+      lowAttendance: studentRows
+        .filter((student) => student.percentage < 75)
+        .slice(0, 20),
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Unable to load attendance analytics",
+      error: error.message,
+    });
+  }
+}
 
 // get fees of students
 async function getFees(req, res) {
@@ -623,6 +839,10 @@ export default {
   createSubject,
   getAllSubjects,
   getAttendance,
+  getAttendanceAnalytics,
+  getTimetable,
+  createTimetable,
+  deleteTimetable,
   assignSubject,
   getSubjectDetails,
   getFees,

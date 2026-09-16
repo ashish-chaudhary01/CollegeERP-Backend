@@ -120,6 +120,30 @@ router.get(
   authorizeRole("admin"),
   adminController.getAttendance,
 );
+router.get(
+  "/attendance/analytics",
+  protect,
+  authorizeRole("admin"),
+  adminController.getAttendanceAnalytics,
+);
+router.get(
+  "/timetable",
+  protect,
+  authorizeRole("admin"),
+  adminController.getTimetable,
+);
+router.post(
+  "/timetable",
+  protect,
+  authorizeRole("admin"),
+  adminController.createTimetable,
+);
+router.delete(
+  "/timetable/:timetableId",
+  protect,
+  authorizeRole("admin"),
+  adminController.deleteTimetable,
+);
 router.post(
   "/fees",
   protect,

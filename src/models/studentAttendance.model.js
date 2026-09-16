@@ -6,9 +6,9 @@ const studentAttendanceSchema = new mongoose.Schema({
     ref: "Student",
     required: true,
   },
-  assignment: {
+  subject: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "SubjectAssignment",
+    ref: "Subject",
     required: true,
   },
   date: {
@@ -26,11 +26,12 @@ const studentAttendanceSchema = new mongoose.Schema({
 studentAttendanceSchema.index(
   {
     student: 1,
-    assignment: 1,
+    subject: 1,
     date: 1,
   },
   {
     unique: true,
+    name: "student_subject_date_unique",
   },
 );
 
