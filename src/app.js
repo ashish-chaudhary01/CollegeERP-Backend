@@ -10,6 +10,7 @@ import adminRoutes from "./routes/admin.route.js";
 
 dotenv.config();
 const app = express();
+const normalizeOrigin = (value) => value.trim().replace(/\/$/, "");
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -19,9 +20,9 @@ app.use(
         process.env.FRONTEND_URL || "http://localhost:5173"
       )
         .split(",")
-        .map((value) => value.trim())
+        .map(normalizeOrigin)
         .filter(Boolean);
-      if (!origin || allowedOrigins.includes(origin))
+      if (!origin || allowedOrigins.includes(normalizeOrigin(origin)))
         return callback(null, true);
       return callback(new Error("Origin is not allowed by CORS"));
     },

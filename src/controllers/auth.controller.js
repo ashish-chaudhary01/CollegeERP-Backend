@@ -2,6 +2,16 @@ import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  process.env.RENDER === "true" ||
+  process.env.FRONTEND_URL?.startsWith("https://");
+const authCookieOptions = {
+  httpOnly: true,
+  sameSite: isProduction ? "none" : "lax",
+  secure: isProduction,
+};
+
 // login controller function
 async function loginUser(req, res) {
   const { email, password } = req.body;
@@ -40,11 +50,7 @@ async function loginUser(req, res) {
 
   res
     .status(200)
-    .cookie("token", newToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-    })
+    .cookie("token", newToken, authCookieOptions)
     .json({
       message: "User logged In successfully",
       user: {
@@ -60,7 +66,7 @@ async function loginUser(req, res) {
 // logout controller function
 async function logoutUser(req, res) {
   res
-    .clearCookie("token", { httpOnly: true, sameSite: "lax", secure: false })
+    .clearCookie("token", authCookieOptions)
     .status(200)
     .json({ message: "logged out successfully" });
 }
