@@ -15,6 +15,8 @@ router.get("/teacher/:teacherId", protect, hodController.getTeacherDetails);
 router.put("/teacher/:teacherId", protect, hodController.updateTeacherDetails);
 router.post("/teacher", protect, hodController.addTeacher);
 router.get("/subjects", protect, hodController.getSubjects);
+router.get("/timetable", protect, hodController.getHodTimetable);
+router.get("/attendance/analytics", protect, hodController.getHodAttendanceAnalytics);
 router.get("/subject/:subjectId", protect, hodController.getSubjectDetails);
 router.post("/subject", protect, hodController.addSubject);
 router.get("/fees", protect, hodController.getStudentFees);

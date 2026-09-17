@@ -6,6 +6,7 @@ import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import departmentModel from "../models/department.model.js";
+import timetableModel from "../models/timetable.model.js";
 
 // search student
 async function searchStudent(req, res) {
@@ -161,6 +162,10 @@ async function addStudent(req, res) {
       semester,
       year,
       academicSession,
+      phoneNumber,
+      address,
+      fatherName,
+      addharCardNumber,
     } = req.body;
 
     const userId = req.user.id;
@@ -192,6 +197,10 @@ async function addStudent(req, res) {
       semester: semester,
       department: departmentId,
       academicSession: academicSession,
+      phoneNumber,
+      address,
+      fatherName,
+      addharCardNumber,
     });
 
     res.status(201).json({
@@ -409,6 +418,12 @@ async function addSubject(req, res) {
   try {
     const { subjectName, subjectCode, semester, year } = req.body;
 
+    if (!subjectName || !subjectCode || !semester || !year) {
+      return res.status(400).json({
+        message: "Subject name, code, year and semester are required",
+      });
+    }
+
     const userId = req.user.id;
     // hod teacher profile
     const hodProfile = await teacherProfileModel.findOne({ userId });
@@ -428,7 +443,15 @@ async function addSubject(req, res) {
     });
 
     res.status(201).json({ message: "Subject created Successfully", subject });
-  } catch (error) {}
+  } catch (error) {
+    console.log(error.message);
+    res.status(error.code === 11000 ? 409 : 500).json({
+      message:
+        error.code === 11000
+          ? "A subject with this code already exists"
+          : "Unable to create subject",
+    });
+  }
 }
 
 // get department subjects
@@ -444,10 +467,27 @@ async function getSubjects(req, res) {
     // hod department id
     const departmentId = hodProfile.department;
 
-    // teachers of same department
-    const subjects = await subjectModel
+    const subjectsData = await subjectModel
       .find({ departmentId: departmentId })
-      .populate("department", "name code");
+      .populate({
+        path: "departmentId",
+        select: "departmentName departmentCode",
+      })
+      .populate({
+        path: "teacherId",
+        populate: { path: "userId", select: "name email" },
+      });
+
+    const subjects = subjectsData.map((subject) => ({
+      _id: subject._id,
+      subjectName: subject.subjectName,
+      subjectCode: subject.subjectCode,
+      year: subject.year,
+      semester: subject.semester,
+      department: subject.departmentId?.departmentCode || "-",
+      departmentName: subject.departmentId?.departmentName || "",
+      teacherName: subject.teacherId?.userId?.name || "Not assigned",
+    }));
 
     res.status(200).json({ subjects });
   } catch (error) {
@@ -460,9 +500,12 @@ async function getSubjects(req, res) {
 async function getSubjectDetails(req, res) {
   try {
     const { subjectId } = req.params;
+    const hodProfile = await teacherProfileModel.findOne({
+      userId: req.user.id,
+    });
 
     const subject = await subjectModel
-      .findById(subjectId)
+      .findOne({ _id: subjectId, departmentId: hodProfile?.department })
       .populate({ path: "departmentId" });
     if (!subject) {
       return res.status(404).json({ message: "Subject not found" });
@@ -522,6 +565,37 @@ async function getStudentFees(req, res) {
   }
 }
 
+async function getHodTimetable(req, res) {
+  try {
+    const profile = await teacherProfileModel.findOne({ userId: req.user.id });
+    if (!profile) return res.status(404).json({ message: "HOD profile not found" });
+    const subjectFilter = { departmentId: profile.department };
+    if (req.query.semester && req.query.semester !== "all") subjectFilter.semester = Number(req.query.semester);
+    const subjects = await subjectModel.find(subjectFilter).select("_id");
+    const timetable = await timetableModel.find({ subject: { $in: subjects.map((item) => item._id) } })
+      .populate({ path: "subject", select: "subjectName subjectCode year semester", populate: { path: "departmentId", select: "departmentName departmentCode" } })
+      .sort({ day: 1, startTime: 1 });
+    res.json({ timetable });
+  } catch (error) { res.status(500).json({ message: error.message }); }
+}
+
+async function getHodAttendanceAnalytics(req, res) {
+  try {
+    const profile = await teacherProfileModel.findOne({ userId: req.user.id });
+    if (!profile) return res.status(404).json({ message: "HOD profile not found" });
+    const currentYear = new Date().getFullYear();
+    const from = req.query.from || `${currentYear}-01-01`;
+    const to = req.query.to || `${currentYear}-12-31`;
+    const students = await studentProfileModel.find({ department: profile.department }).populate("userId", "name").lean();
+    const records = await studentAttendanceModel.find({ student: { $in: students.map((student) => student._id) }, date: { $gte: from, $lte: to } }).lean();
+    const stats = new Map(); const totals = { present: 0, absent: 0, leave: 0 };
+    records.forEach((record) => { totals[record.status] = (totals[record.status] || 0) + 1; const key = String(record.student); const value = stats.get(key) || { present: 0, absent: 0, leave: 0 }; value[record.status] += 1; stats.set(key, value); });
+    const percent = (value) => { const total = value.present + value.absent + value.leave; return total ? Number(((value.present / total) * 100).toFixed(1)) : 0; };
+    const studentRows = students.map((student) => { const value = stats.get(String(student._id)) || { present: 0, absent: 0, leave: 0 }; return { id: student._id, name: student.userId?.name || "Unknown", rollNumber: student.rollNumber, year: student.year, semester: student.semester, ...value, percentage: percent(value) }; }).sort((a, b) => a.percentage - b.percentage);
+    res.json({ range: { from, to }, totals: { ...totals, percentage: percent(totals) }, students: studentRows, lowAttendance: studentRows.filter((student) => student.percentage < 75).slice(0, 20) });
+  } catch (error) { res.status(500).json({ message: error.message }); }
+}
+
 async function submitFees(req, res) {
   try {
     const profile = await teacherProfileModel.findOne({ userId: req.user.id });
@@ -561,6 +635,8 @@ export default {
   getSubjectDetails,
   getStudentFees,
   submitFees,
+  getHodTimetable,
+  getHodAttendanceAnalytics,
   getHodProfile,
   updateHodProfile,
 };

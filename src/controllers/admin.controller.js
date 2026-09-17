@@ -691,6 +691,8 @@ async function createTimetable(req, res) {
         .json({ message: "Valid subject, day and time range are required" });
     const subject = await subjectModel.findById(subjectId);
     if (!subject) return res.status(404).json({ message: "Subject not found" });
+    if (subject.semester > 6)
+      return res.status(400).json({ message: "Timetable supports semesters 1 through 6 only" });
     const timetable = await timetableModel.create({
       subject: subject._id,
       day,

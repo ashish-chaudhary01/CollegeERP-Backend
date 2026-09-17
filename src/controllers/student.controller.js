@@ -190,6 +190,16 @@ async function getStudentAttendance(req, res) {
   }
 }
 
+async function getStudentTimetable(req, res) {
+  try {
+    const student = await studentProfileModel.findOne({ userId: req.user.id });
+    if (!student) return res.status(404).json({ message: "Student profile not found" });
+    const subjects = await subjectModel.find({ departmentId: student.department, year: student.year, semester: student.semester }).select("_id");
+    const timetable = await timetableModel.find({ subject: { $in: subjects.map((subject) => subject._id) } }).populate("subject", "subjectName subjectCode year semester").sort({ day: 1, startTime: 1 });
+    res.json({ timetable });
+  } catch (error) { res.status(500).json({ message: error.message }); }
+}
+
 export default {
   studentDashboard,
   studentProfile,
@@ -197,5 +207,6 @@ export default {
   getSubjectDetails,
   getStudentFees,
   getStudentAttendance,
+  getStudentTimetable,
   updateStudentProfile,
 };

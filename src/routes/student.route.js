@@ -12,6 +12,7 @@ router.get("/subjects", protect, studentController.getStudentSubjects);
 router.get("/subject/:subjectId", protect, studentController.getSubjectDetails);
 router.get("/fees", protect, studentController.getStudentFees);
 router.get("/attendance", protect, studentController.getStudentAttendance);
+router.get("/timetable", protect, studentController.getStudentTimetable);
 router.put("/profile", protect, studentController.updateStudentProfile);
 router.post(
   "/profile/photo",
