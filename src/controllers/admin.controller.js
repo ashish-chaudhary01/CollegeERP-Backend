@@ -291,7 +291,7 @@ async function getAllStudent(req, res) {
     if (departmentId && departmentId !== "all") {
       filter.department = departmentId;
     }
-    if (status) {
+    if (status && status !== "all") {
       filter.status = status;
     }
     if (year && year !== "all") {
@@ -432,12 +432,24 @@ async function createTeacher(req, res) {
 
 // get all teacher
 async function getAllTeacher(req, res) {
-  const teacher = await teacherProfileModel
-    .find()
-    .populate({ path: "department" })
-    .populate({ path: "userId", select: "-password" });
+  try {
+    const { departmentId, status } = req.query;
+    const filter = {};
+    if (departmentId && departmentId !== "all") {
+      filter.department = departmentId;
+    }
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+    const teacher = await teacherProfileModel
+      .find(filter)
+      .populate({ path: "department" })
+      .populate({ path: "userId", select: "-password" });
 
-  res.status(200).json({ teacher });
+    res.status(200).json({ teacher });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 // get teacher details

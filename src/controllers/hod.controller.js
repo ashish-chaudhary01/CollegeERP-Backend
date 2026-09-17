@@ -227,9 +227,21 @@ async function getStudents(req, res) {
     // hod department id
     const departmentId = hodProfile.department;
 
+    const { status, year, semester } = req.query;
+    const filter = { department: departmentId };
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+    if (year && year !== "all") {
+      filter.year = year;
+    }
+    if (semester && semester !== "all") {
+      filter.semester = semester;
+    }
+
     // students of same department
     const students = await studentProfileModel
-      .find({ department: departmentId })
+      .find(filter)
       .populate("userId", "name email")
       .populate("department", "departmentName departmentCode");
 
@@ -334,11 +346,17 @@ async function getTeachers(req, res) {
     // hod department id
     const departmentId = hodProfile.department;
 
+    const { status } = req.query;
+    const filter = { department: departmentId };
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
     // teachers of same department
     const teachers = await teacherProfileModel
-      .find({ department: departmentId })
+      .find(filter)
       .populate("userId", "name email")
-      .populate("department", "name code");
+      .populate("department", "name code departmentName departmentCode");
 
     res.status(200).json({ teachers });
   } catch (error) {
@@ -620,7 +638,95 @@ async function submitFees(req, res) {
   }
 }
 
+
+// update subject
+async function updateSubject(req, res) {
+  try {
+    const { subjectId } = req.params;
+    const { subjectName, subjectCode, semester, year } = req.body;
+    const hodProfile = await teacherProfileModel.findOne({
+      userId: req.user.id,
+    });
+
+    const subject = await subjectModel.findOne({
+      _id: subjectId,
+      departmentId: hodProfile?.department,
+    });
+
+    if (!subject) {
+      return res
+        .status(404)
+        .json({ message: "Subject not found in your department" });
+    }
+
+    if (subjectName) subject.subjectName = subjectName;
+    if (subjectCode) subject.subjectCode = subjectCode;
+    if (year) subject.year = Number(year);
+    if (semester) subject.semester = Number(semester);
+
+    await subject.save();
+
+    res.status(200).json({ message: "Subject updated successfully", subject });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+}
+
+// update student details
+async function updateStudentDetails(req, res) {
+  try {
+    const { studentId } = req.params;
+    const hodProfile = await teacherProfileModel.findOne({
+      userId: req.user.id,
+    });
+    const {
+      name,
+      email,
+      rollNumber,
+      year,
+      semester,
+      academicSession,
+      phoneNumber,
+      address,
+      fatherName,
+      status,
+    } = req.body;
+
+    const student = await studentProfileModel.findOneAndUpdate(
+      { _id: studentId, department: hodProfile?.department },
+      {
+        rollNumber,
+        year,
+        semester,
+        academicSession,
+        phoneNumber,
+        address,
+        fatherName,
+        status,
+      },
+      { new: true, runValidators: true },
+    );
+    if (!student)
+      return res
+        .status(404)
+        .json({ message: "Student not found in your department" });
+
+    if (name || email) {
+      await userModel.findByIdAndUpdate(
+        student.userId,
+        { ...(name && { name }), ...(email && { email }) },
+        { runValidators: true },
+      );
+    }
+    res.json({ message: "Student details updated", student });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+}
+
 export default {
+  updateSubject,
+  updateStudentDetails,
   searchStudent,
   getHodDashboard,
   addStudent,

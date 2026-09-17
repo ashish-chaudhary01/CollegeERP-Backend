@@ -114,9 +114,21 @@ async function getStudents(req, res) {
     // hod department id
     const departmentId = teacherProfile.department;
 
+    const { status, year, semester } = req.query;
+    const filter = { department: departmentId };
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+    if (year && year !== "all") {
+      filter.year = year;
+    }
+    if (semester && semester !== "all") {
+      filter.semester = semester;
+    }
+
     // students of same department
     const students = await studentProfileModel
-      .find({ department: departmentId })
+      .find(filter)
       .populate("userId", "name email")
       .populate("department", "departmentName departmentCode");
 
