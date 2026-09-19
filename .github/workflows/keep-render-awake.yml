@@ -9,9 +9,32 @@ jobs:
   health-check:
     runs-on: ubuntu-latest
     steps:
+      - name: Check BACKEND_URL secret is set
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+        run: |
+          if [ -z "$BACKEND_URL" ]; then
+            echo "ERROR: BACKEND_URL secret is not set in GitHub repository secrets."
+            echo "Go to: Settings > Secrets and variables > Actions > New repository secret"
+            echo "Name: BACKEND_URL"
+            echo "Value: https://your-backend.onrender.com"
+            exit 1
+          fi
+          echo "BACKEND_URL is set: $BACKEND_URL"
+
       - name: Ping Render health endpoint
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: |
-          test -n "$BACKEND_URL"
-          curl --fail --silent --show-error --max-time 30 "$BACKEND_URL/api/health"
+          echo "Pinging $BACKEND_URL/api/health ..."
+          curl \
+            --fail \
+            --show-error \
+            --connect-timeout 10 \
+            --max-time 90 \
+            --retry 3 \
+            --retry-delay 10 \
+            --retry-max-time 300 \
+            "$BACKEND_URL/api/health"
+          echo ""
+          echo "Render backend is awake!"
