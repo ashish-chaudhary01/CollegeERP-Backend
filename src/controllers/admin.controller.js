@@ -281,6 +281,24 @@ async function createStudent(req, res) {
   }
 }
 
+// delete student
+async function deleteStudent(req, res) {
+  try {
+    const { studentId } = req.params;
+    const student = await studentProfileModel.findByIdAndDelete(studentId);
+
+    if (!student) return res.status(404).json({ message: "No student found" })
+    const user = await userModel.findByIdAndDelete(student.userId);
+
+    res.status(200).json({
+      message: "Student deleted successfully",
+    })
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: "student not deleted" })
+  }
+}
+
 //get all student
 async function getAllStudent(req, res) {
   try {
@@ -474,6 +492,7 @@ async function getTeacherDetails(req, res) {
   }
 }
 
+// update teacher
 async function updateTeacherDetails(req, res) {
   try {
     const { teacherId } = req.params;
@@ -514,6 +533,24 @@ async function updateTeacherDetails(req, res) {
     res.json({ message: "Teacher details updated", teacher, subjects });
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+}
+
+// delete teacher
+async function deleteTeacher(req, res) {
+  try {
+    const { teacherId } = req.params;
+    const teacher = await teacherProfileModel.findByIdAndDelete(teacherId);
+
+    if (!teacher) return res.status(404).json({ message: "No Teacher found" })
+    const user = await userModel.findByIdAndDelete(teacher.userId);
+
+    res.status(200).json({
+      message: "Teacher deleted successfully",
+    })
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: "Teacher not deleted" })
   }
 }
 
@@ -581,8 +618,8 @@ async function getSubjectDetails(req, res) {
 
     const assignedTeacher = subject.teacherId
       ? await teacherProfileModel
-          .findById(subject.teacherId)
-          .populate({ path: "userId", select: "name email" })
+        .findById(subject.teacherId)
+        .populate({ path: "userId", select: "name email" })
       : null;
 
     res.status(200).json({ subject, assignedTeacher });
@@ -962,11 +999,13 @@ export default {
   getDepartmentDetails,
   createStudent,
   getAllStudent,
+  deleteStudent,
   getStudentDetails,
   updateStudentDetails,
   createTeacher,
   getAllTeacher,
   getTeacherDetails,
+  deleteTeacher,
   updateTeacherDetails,
   createSubject,
   getAllSubjects,
