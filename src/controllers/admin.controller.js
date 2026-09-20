@@ -172,43 +172,49 @@ async function getDepartmentDetails(req, res) {
 
 // assign hod to department
 async function assignHod(req, res) {
-  const { departmentId } = req.params;
-  const { teacherId } = req.body;
+  try {
+    const { departmentId } = req.params;
+    const { teacherId } = req.body;
 
-  const department = await departmentModel.findById(departmentId);
+    const department = await departmentModel.findById(departmentId);
 
-  if (!department) {
-    return res.status(404).json({ message: "No department found" });
+    if (!department) {
+      return res.status(404).json({ message: "No department found" });
+    }
+
+    const teacher = await teacherProfileModel.findById(teacherId);
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+    if (String(teacher.department) !== String(departmentId)) {
+      return res
+        .status(400)
+        .json({ message: "HOD must belong to this department" });
+    }
+
+    const previousHod = await teacherProfileModel.findById(department.hod);
+
+    // find previous hod and demote it to teacher
+    if (previousHod) {
+      await userModel.findByIdAndUpdate(previousHod.userId, {
+        role: "teacher",
+      });
+    }
+
+    // assigning new hod
+    department.hod = teacher._id;
+    await department.save();
+
+    // find and update user(teacher) to hod
+    await userModel.findByIdAndUpdate(teacher.userId, { role: "hod" });
+
+    return res.status(200).json({
+      message: "HOD assigned successfully",
+    });
+  } catch (error) {
+    console.log(error.message);
   }
-
-  const teacher = await teacherProfileModel.findById(teacherId);
-
-  if (!teacher) {
-    return res.status(404).json({ message: "Teacher not found" });
-  }
-  if (String(teacher.department) !== String(departmentId)) {
-    return res
-      .status(400)
-      .json({ message: "HOD must belong to this department" });
-  }
-
-  const previousHod = await teacherProfileModel.findById(department.hod);
-
-  // find previous hod and demote it to teacher
-  if (previousHod) {
-    await userModel.findByIdAndUpdate(previousHod.userId, { role: "teacher" });
-  }
-
-  // assigning new hod
-  department.hod = teacher._id;
-  await department.save();
-
-  // find and update user(teacher) to hod
-  await userModel.findByIdAndUpdate(teacher.userId, { role: "hod" });
-
-  return res.status(200).json({
-    message: "HOD assigned successfully",
-  });
 }
 
 // create student
@@ -287,15 +293,15 @@ async function deleteStudent(req, res) {
     const { studentId } = req.params;
     const student = await studentProfileModel.findByIdAndDelete(studentId);
 
-    if (!student) return res.status(404).json({ message: "No student found" })
+    if (!student) return res.status(404).json({ message: "No student found" });
     const user = await userModel.findByIdAndDelete(student.userId);
 
     res.status(200).json({
       message: "Student deleted successfully",
-    })
+    });
   } catch (error) {
     console.log(error.message);
-    res.status(500).json({ message: "student not deleted" })
+    res.status(500).json({ message: "student not deleted" });
   }
 }
 
@@ -542,15 +548,15 @@ async function deleteTeacher(req, res) {
     const { teacherId } = req.params;
     const teacher = await teacherProfileModel.findByIdAndDelete(teacherId);
 
-    if (!teacher) return res.status(404).json({ message: "No Teacher found" })
+    if (!teacher) return res.status(404).json({ message: "No Teacher found" });
     const user = await userModel.findByIdAndDelete(teacher.userId);
 
     res.status(200).json({
       message: "Teacher deleted successfully",
-    })
+    });
   } catch (error) {
     console.log(error.message);
-    res.status(500).json({ message: "Teacher not deleted" })
+    res.status(500).json({ message: "Teacher not deleted" });
   }
 }
 
@@ -618,8 +624,8 @@ async function getSubjectDetails(req, res) {
 
     const assignedTeacher = subject.teacherId
       ? await teacherProfileModel
-        .findById(subject.teacherId)
-        .populate({ path: "userId", select: "name email" })
+          .findById(subject.teacherId)
+          .populate({ path: "userId", select: "name email" })
       : null;
 
     res.status(200).json({ subject, assignedTeacher });
@@ -741,7 +747,9 @@ async function createTimetable(req, res) {
     const subject = await subjectModel.findById(subjectId);
     if (!subject) return res.status(404).json({ message: "Subject not found" });
     if (subject.semester > 6)
-      return res.status(400).json({ message: "Timetable supports semesters 1 through 6 only" });
+      return res
+        .status(400)
+        .json({ message: "Timetable supports semesters 1 through 6 only" });
     const timetable = await timetableModel.create({
       subject: subject._id,
       day,
