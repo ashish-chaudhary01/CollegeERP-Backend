@@ -10,6 +10,7 @@ const authCookieOptions = {
   httpOnly: true,
   sameSite: isProduction ? "none" : "lax",
   secure: isProduction,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 // login controller function
@@ -37,7 +38,7 @@ async function loginUser(req, res) {
     }
 
     // is password correct
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -70,10 +71,14 @@ async function loginUser(req, res) {
 
 // logout controller function
 async function logoutUser(req, res) {
-  res
-    .clearCookie("token", authCookieOptions)
-    .status(200)
-    .json({ message: "logged out successfully" });
+  try {
+    res
+      .clearCookie("token", authCookieOptions)
+      .status(200)
+      .json({ message: "logged out successfully" });
+  } catch (error) {
+    console.log(error.message);
+  }
 }
 
 // change password
