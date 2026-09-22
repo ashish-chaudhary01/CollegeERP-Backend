@@ -231,6 +231,8 @@ async function createStudent(req, res) {
       academicSession,
       addharCardNumber,
       phoneNumber,
+      address,
+      fatherName,
     } = req.body;
 
     if (
@@ -268,6 +270,9 @@ async function createStudent(req, res) {
       department: department,
       academicSession: academicSession,
       addharCardNumber: addharCardNumber,
+      phoneNumber: phoneNumber,
+      address: address,
+      fatherName: fatherName,
     });
 
     // create his fees model
@@ -444,6 +449,7 @@ async function createTeacher(req, res) {
     const teacherProfile = await teacherProfileModel.create({
       userId: user._id,
       department,
+      phoneNumber: phoneNumber,
     });
 
     res
