@@ -23,7 +23,7 @@ const studentProfileSchema = new mongoose.Schema(
     phoneNumber: String,
     address: String,
     academicSession: { type: String, required: true },
-    addharCardNumber: { type: String, unique: true },
+    addharCardNumber: { type: String },
     department: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
