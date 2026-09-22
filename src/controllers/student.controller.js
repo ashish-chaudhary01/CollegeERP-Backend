@@ -10,12 +10,10 @@ import timetableModel from "../models/timetable.model.js";
 async function studentDashboard(req, res) {
   try {
     const userId = req.user.id;
-    const student = await studentProfileModel
-      .findOne({ userId })
-      .populate([
-        { path: "userId", select: "name email role status" },
-        { path: "department", select: "departmentName departmentCode" },
-      ]);
+    const student = await studentProfileModel.findOne({ userId }).populate([
+      { path: "userId", select: "name email role status" },
+      { path: "department", select: "departmentName departmentCode" },
+    ]);
 
     if (!student) {
       return res.status(404).json({ message: "Student profile not found" });
@@ -190,8 +188,15 @@ async function studentProfile(req, res) {
 
 async function updateStudentProfile(req, res) {
   try {
-    const { name, email, phoneNumber, address, profilePictureUrl, fatherName } =
-      req.body;
+    const {
+      name,
+      email,
+      phoneNumber,
+      address,
+      profilePictureUrl,
+      fatherName,
+      rollNumber,
+    } = req.body;
     const user = await userModel
       .findByIdAndUpdate(
         req.user.id,
@@ -202,7 +207,7 @@ async function updateStudentProfile(req, res) {
     const student = await studentProfileModel
       .findOneAndUpdate(
         { userId: req.user.id },
-        { phoneNumber, address, profilePictureUrl, fatherName },
+        { phoneNumber, address, profilePictureUrl, fatherName, rollNumber },
         { new: true, runValidators: true },
       )
       .populate([
@@ -277,7 +282,10 @@ async function getStudentFees(req, res) {
     const student = await studentProfileModel
       .findOne({ userId })
       .populate({ path: "userId", select: "name email" })
-      .populate({ path: "department", select: "departmentName departmentCode" });
+      .populate({
+        path: "department",
+        select: "departmentName departmentCode",
+      });
 
     if (!student) {
       return res.status(404).json({ message: "Student Profile Not Found" });
@@ -292,7 +300,10 @@ async function getStudentFees(req, res) {
     console.error("Error in getStudentFees:", error.message);
     res
       .status(500)
-      .json({ message: error.message || "Error in student controller at getStudentFees" });
+      .json({
+        message:
+          error.message || "Error in student controller at getStudentFees",
+      });
   }
 }
 
