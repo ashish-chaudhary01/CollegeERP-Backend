@@ -219,6 +219,8 @@ async function assignHod(req, res) {
 
 // create student
 async function createStudent(req, res) {
+  const session = await mongoose.startSession();
+
   try {
     const {
       name,
@@ -235,60 +237,93 @@ async function createStudent(req, res) {
       fatherName,
     } = req.body;
 
+    // Required fields
     if (
-      !name &&
-      !email &&
-      !rollNumber &&
-      !password &&
-      !semester &&
-      !year &&
-      !department &&
-      !academicSession &&
-      !addharCardNumber &&
+      !name ||
+      !email ||
+      !rollNumber ||
+      !password ||
+      !semester ||
+      !year ||
+      !department ||
+      !academicSession ||
+      !addharCardNumber ||
       !phoneNumber
     ) {
-      return res.status(500).json({ message: "all fields are required" });
+      return res.status(400).json({
+        message: "All required fields are required",
+      });
     }
 
-    //password hash
+    await session.startTransaction();
+
+    // Password hash
     const passwordHash = await bcrypt.hash(password, 10);
 
-    //creating user
-    const user = await userModel.create({
-      name: name,
-      email: email,
-      password: passwordHash,
-      role: "student",
-    });
+    // Create user first
+    const [user] = await userModel.create(
+      [
+        {
+          name,
+          email,
+          password: passwordHash,
+          role: "student",
+        },
+      ],
+      { session },
+    );
 
-    //   student profile
-    const studentProfile = await studentProfileModel.create({
-      userId: user._id,
-      rollNumber: rollNumber,
-      year: year,
-      semester: semester,
-      department: department,
-      academicSession: academicSession,
-      addharCardNumber: addharCardNumber,
-      phoneNumber: phoneNumber,
-      address: address,
-      fatherName: fatherName,
-    });
+    // Create student profile
+    const [studentProfile] = await studentProfileModel.create(
+      [
+        {
+          userId: user._id,
+          rollNumber,
+          year,
+          semester,
+          department,
+          academicSession,
+          addharCardNumber,
+          phoneNumber,
+          address,
+          fatherName,
+        },
+      ],
+      { session },
+    );
 
-    // create his fees model
-    const fees = await feesModel.create({
-      studentId: studentProfile._id,
-      status: "pending",
-      session: "null",
-    });
+    // Create fees
+    const [fees] = await feesModel.create(
+      [
+        {
+          studentId: studentProfile._id,
+          status: "pending",
+          session: academicSession,
+        },
+      ],
+      { session },
+    );
+
+    // Everything successful
+    await session.commitTransaction();
 
     res.status(201).json({
       message: "Student created successfully",
       user,
       studentProfile,
+      fees,
     });
   } catch (error) {
+    // Any error → rollback everything
+    await session.abortTransaction();
+
     console.log(error.message);
+
+    res.status(500).json({
+      message: error.message,
+    });
+  } finally {
+    session.endSession();
   }
 }
 
