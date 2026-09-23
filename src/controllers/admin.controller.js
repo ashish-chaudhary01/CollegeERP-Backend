@@ -464,6 +464,7 @@ async function updateStudentDetails(req, res) {
 
 // create teacher
 async function createTeacher(req, res) {
+  const session = await mongoose.startSession();
   try {
     const { name, email, password, department, phoneNumber } = req.body;
 
@@ -471,28 +472,47 @@ async function createTeacher(req, res) {
       return res.status(500).json({ message: "all fields are required" });
     }
 
+    await session.startTransaction();
+
     //password hash
     const passwordHash = await bcrypt.hash(password, 10);
 
     //creating user
-    const user = await userModel.create({
-      name: name,
-      email: email,
-      password: passwordHash,
-      role: "teacher",
-    });
+    const [user] = await userModel.create(
+      [
+        {
+          name: name,
+          email: email,
+          password: passwordHash,
+          role: "teacher",
+        },
+      ],
+      { session },
+    );
 
-    const teacherProfile = await teacherProfileModel.create({
-      userId: user._id,
-      department,
-      phoneNumber: phoneNumber,
-    });
+    const [teacherProfile] = await teacherProfileModel.create(
+      [
+        {
+          userId: user._id,
+          department,
+          phoneNumber: phoneNumber,
+        },
+      ],
+      { session },
+    );
+
+    // Everything successful
+    await session.commitTransaction();
 
     res
       .status(201)
       .json({ message: "Teacher created Successfully", user, teacherProfile });
   } catch (error) {
+    // Any error → rollback everything
+    await session.abortTransaction();
     console.log(error.message);
+  } finally {
+    session.endSession();
   }
 }
 

@@ -117,4 +117,12 @@ async function changePassword(req, res) {
   }
 }
 
-export default { loginUser, logoutUser, changePassword };
+// forget password
+async function resetPassword(req, res) {
+  try {
+    const { email } = req.body;
+    res.status(200).json({ message: "Working" });
+  } catch (error) {}
+}
+
+export default { loginUser, logoutUser, changePassword, resetPassword };
