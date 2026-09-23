@@ -7,6 +7,7 @@ import bcrypt from "bcrypt";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import departmentModel from "../models/department.model.js";
 import timetableModel from "../models/timetable.model.js";
+import mongoose from "mongoose";
 
 // search student
 async function searchStudent(req, res) {
@@ -151,8 +152,10 @@ async function getHodDashboard(req, res) {
   }
 }
 
-// add new student
+// create student
 async function addStudent(req, res) {
+  const session = await mongoose.startSession();
+
   try {
     const {
       name,
@@ -161,56 +164,101 @@ async function addStudent(req, res) {
       password,
       semester,
       year,
+      department,
       academicSession,
+      addharCardNumber,
       phoneNumber,
       address,
       fatherName,
-      addharCardNumber,
     } = req.body;
 
-    const userId = req.user.id;
-    // hod teacher profile
-    const hodProfile = await teacherProfileModel.findOne({ userId });
-
-    if (!hodProfile) {
-      return res.status(404).json({ message: "Hod Profile Not Found" });
+    // Required fields
+    if (
+      !name ||
+      !email ||
+      !rollNumber ||
+      !password ||
+      !semester ||
+      !year ||
+      !department ||
+      !academicSession ||
+      !addharCardNumber ||
+      !phoneNumber
+    ) {
+      return res.status(400).json({
+        message: "All required fields are required",
+      });
     }
-    // hod department id
-    const departmentId = hodProfile.department;
 
-    //password hash
+    await session.startTransaction();
+
+    // Password hash
     const passwordHash = await bcrypt.hash(password, 10);
 
-    //creating user
-    const user = await userModel.create({
-      name: name,
-      email: email,
-      password: passwordHash,
-      role: "student",
-    });
+    // Create user first
+    const [user] = await userModel.create(
+      [
+        {
+          name,
+          email,
+          password: passwordHash,
+          role: "student",
+        },
+      ],
+      { session },
+    );
 
-    //   student profile
-    const studentProfile = await studentProfileModel.create({
-      userId: user._id,
-      rollNumber: rollNumber,
-      year: year,
-      semester: semester,
-      department: departmentId,
-      academicSession: academicSession,
-      phoneNumber,
-      address,
-      fatherName,
-      addharCardNumber,
-    });
+    // Create student profile
+    const [studentProfile] = await studentProfileModel.create(
+      [
+        {
+          userId: user._id,
+          rollNumber,
+          year,
+          semester,
+          department,
+          academicSession,
+          addharCardNumber,
+          phoneNumber,
+          address,
+          fatherName,
+        },
+      ],
+      { session },
+    );
+
+    // Create fees
+    const [fees] = await feesModel.create(
+      [
+        {
+          studentId: studentProfile._id,
+          status: "pending",
+          session: academicSession,
+        },
+      ],
+      { session },
+    );
+
+    // Everything successful
+    await session.commitTransaction();
 
     res.status(201).json({
       message: "Student created successfully",
       user,
       studentProfile,
+      fees,
     });
   } catch (error) {
+    // Any error → rollback everything
+    await session.abortTransaction();
+
     console.log(error.message);
-    res.status(500).json({ message: "Error in adding student" });
+
+    res.status(500).json({
+      message: error.message,
+    });
+  } finally {
+    session.endSession();
   }
 }
 
@@ -586,32 +634,89 @@ async function getStudentFees(req, res) {
 async function getHodTimetable(req, res) {
   try {
     const profile = await teacherProfileModel.findOne({ userId: req.user.id });
-    if (!profile) return res.status(404).json({ message: "HOD profile not found" });
+    if (!profile)
+      return res.status(404).json({ message: "HOD profile not found" });
     const subjectFilter = { departmentId: profile.department };
-    if (req.query.semester && req.query.semester !== "all") subjectFilter.semester = Number(req.query.semester);
+    if (req.query.semester && req.query.semester !== "all")
+      subjectFilter.semester = Number(req.query.semester);
     const subjects = await subjectModel.find(subjectFilter).select("_id");
-    const timetable = await timetableModel.find({ subject: { $in: subjects.map((item) => item._id) } })
-      .populate({ path: "subject", select: "subjectName subjectCode year semester", populate: { path: "departmentId", select: "departmentName departmentCode" } })
+    const timetable = await timetableModel
+      .find({ subject: { $in: subjects.map((item) => item._id) } })
+      .populate({
+        path: "subject",
+        select: "subjectName subjectCode year semester",
+        populate: {
+          path: "departmentId",
+          select: "departmentName departmentCode",
+        },
+      })
       .sort({ day: 1, startTime: 1 });
     res.json({ timetable });
-  } catch (error) { res.status(500).json({ message: error.message }); }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function getHodAttendanceAnalytics(req, res) {
   try {
     const profile = await teacherProfileModel.findOne({ userId: req.user.id });
-    if (!profile) return res.status(404).json({ message: "HOD profile not found" });
+    if (!profile)
+      return res.status(404).json({ message: "HOD profile not found" });
     const currentYear = new Date().getFullYear();
     const from = req.query.from || `${currentYear}-01-01`;
     const to = req.query.to || `${currentYear}-12-31`;
-    const students = await studentProfileModel.find({ department: profile.department }).populate("userId", "name").lean();
-    const records = await studentAttendanceModel.find({ student: { $in: students.map((student) => student._id) }, date: { $gte: from, $lte: to } }).lean();
-    const stats = new Map(); const totals = { present: 0, absent: 0, leave: 0 };
-    records.forEach((record) => { totals[record.status] = (totals[record.status] || 0) + 1; const key = String(record.student); const value = stats.get(key) || { present: 0, absent: 0, leave: 0 }; value[record.status] += 1; stats.set(key, value); });
-    const percent = (value) => { const total = value.present + value.absent + value.leave; return total ? Number(((value.present / total) * 100).toFixed(1)) : 0; };
-    const studentRows = students.map((student) => { const value = stats.get(String(student._id)) || { present: 0, absent: 0, leave: 0 }; return { id: student._id, name: student.userId?.name || "Unknown", rollNumber: student.rollNumber, year: student.year, semester: student.semester, ...value, percentage: percent(value) }; }).sort((a, b) => a.percentage - b.percentage);
-    res.json({ range: { from, to }, totals: { ...totals, percentage: percent(totals) }, students: studentRows, lowAttendance: studentRows.filter((student) => student.percentage < 75).slice(0, 20) });
-  } catch (error) { res.status(500).json({ message: error.message }); }
+    const students = await studentProfileModel
+      .find({ department: profile.department })
+      .populate("userId", "name")
+      .lean();
+    const records = await studentAttendanceModel
+      .find({
+        student: { $in: students.map((student) => student._id) },
+        date: { $gte: from, $lte: to },
+      })
+      .lean();
+    const stats = new Map();
+    const totals = { present: 0, absent: 0, leave: 0 };
+    records.forEach((record) => {
+      totals[record.status] = (totals[record.status] || 0) + 1;
+      const key = String(record.student);
+      const value = stats.get(key) || { present: 0, absent: 0, leave: 0 };
+      value[record.status] += 1;
+      stats.set(key, value);
+    });
+    const percent = (value) => {
+      const total = value.present + value.absent + value.leave;
+      return total ? Number(((value.present / total) * 100).toFixed(1)) : 0;
+    };
+    const studentRows = students
+      .map((student) => {
+        const value = stats.get(String(student._id)) || {
+          present: 0,
+          absent: 0,
+          leave: 0,
+        };
+        return {
+          id: student._id,
+          name: student.userId?.name || "Unknown",
+          rollNumber: student.rollNumber,
+          year: student.year,
+          semester: student.semester,
+          ...value,
+          percentage: percent(value),
+        };
+      })
+      .sort((a, b) => a.percentage - b.percentage);
+    res.json({
+      range: { from, to },
+      totals: { ...totals, percentage: percent(totals) },
+      students: studentRows,
+      lowAttendance: studentRows
+        .filter((student) => student.percentage < 75)
+        .slice(0, 20),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 }
 
 async function submitFees(req, res) {
@@ -637,7 +742,6 @@ async function submitFees(req, res) {
     res.status(500).json({ message: error.message });
   }
 }
-
 
 // update subject
 async function updateSubject(req, res) {

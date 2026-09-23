@@ -7,6 +7,7 @@ import subjectModel from "../models/subject.model.js";
 import studentAttendanceModel from "../models/studentAttendance.model.js";
 import feesModel from "../models/fees.model.js";
 import timetableModel from "../models/timetable.model.js";
+import mongoose from "mongoose";
 
 // update profile
 async function updateProfile(req, res) {
