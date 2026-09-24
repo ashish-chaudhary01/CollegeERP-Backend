@@ -2,6 +2,7 @@ import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import otpModel from "../models/otp.Model.js";
 
 const isProduction =
   process.env.NODE_ENV === "production" ||
@@ -210,7 +211,7 @@ async function resetPassword(req, res) {
         message: "Invalid reset token",
       });
     }
-    const user = await userModel.findOne(decoded.userEmail);
+    const user = await userModel.findOne({ email: decoded.userEmail });
 
     if (!user) {
       return res.status(404).json({
