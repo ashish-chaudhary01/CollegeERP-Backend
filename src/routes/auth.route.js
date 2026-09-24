@@ -7,5 +7,7 @@ const router = express.Router();
 router.post("/login", authController.loginUser); //login route
 router.post("/logout", authController.logoutUser); //logout route
 router.put("/changePassword/:userId", protect, authController.changePassword); // change password route
+router.post("/forgot-password", authController.forgotPassword); //forgot password
+router.post("/verify-otp", authController.verifyOtp); //verify otp
 router.post("/reset-password", authController.resetPassword); //reset password
 export default router;

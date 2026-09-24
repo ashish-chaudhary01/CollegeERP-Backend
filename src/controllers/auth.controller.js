@@ -1,6 +1,7 @@
 import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 const isProduction =
   process.env.NODE_ENV === "production" ||
@@ -118,11 +119,118 @@ async function changePassword(req, res) {
 }
 
 // forget password
-async function resetPassword(req, res) {
+async function forgotPassword(req, res) {
   try {
     const { email } = req.body;
-    res.status(200).json({ message: "Working" });
-  } catch (error) {}
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        message: "Please enter a valid email address",
+      });
+    }
+    const user = await userModel.findOne({ email: email });
+    if (!user) {
+      return res.status(404).json({ message: "Invalid user" });
+    }
+    await otpModel.deleteMany({ email });
+
+    const otp = crypto.randomInt(100000, 1000000).toString();
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await otpModel.create({
+      email,
+      otp,
+      expiresAt,
+    });
+    res.status(200).json({ message: "otp sent successfully" });
+  } catch (error) {
+    console.log(error.message);
+  }
 }
 
-export default { loginUser, logoutUser, changePassword, resetPassword };
+// verify otp
+async function verifyOtp(req, res) {
+  try {
+    const { email, otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ message: "otp should not be empty" });
+    }
+    const otpRecord = await otpModel.findOne({
+      email,
+      otp,
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({
+        message: "Invalid OTP",
+      });
+    }
+
+    if (otpRecord.expiresAt < new Date()) {
+      await otpRecord.deleteOne();
+
+      return res.status(400).json({
+        message: "OTP has expired",
+      });
+    }
+    await otpRecord.deleteOne();
+    const resetToken = jwt.sign(
+      {
+        userEmail: email,
+        purpose: "password-reset",
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "10m",
+      },
+    );
+    res.status(200).json({ message: "OTP verified successfully", resetToken });
+  } catch (error) {
+    console.log(error.message);
+  }
+}
+
+// reset password
+async function resetPassword(req, res) {
+  try {
+    const { password, confirmPassword, resetToken } = req.body;
+    if (password !== confirmPassword) {
+      return res
+        .status(400)
+        .json({ message: "confirm password does not match" });
+    }
+    const decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+    if (!decoded) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
+    }
+    if (decoded.purpose !== "password-reset") {
+      return res.status(401).json({
+        message: "Invalid reset token",
+      });
+    }
+    const user = await userModel.findOne(decoded.userEmail);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    await user.save();
+    res.status(200).json({ message: "password reset successfully" });
+  } catch (error) {
+    console.log(error.message);
+  }
+}
+
+export default {
+  loginUser,
+  logoutUser,
+  changePassword,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
+};
