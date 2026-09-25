@@ -65,7 +65,12 @@ router.put(
   authorizeRole("admin"),
   adminController.updateStudentDetails,
 );
-router.delete("/student/:studentId", protect, authorizeRole("admin",), adminController.deleteStudent)
+router.delete(
+  "/student/:studentId",
+  protect,
+  authorizeRole("admin", "hod"),
+  adminController.deleteStudent,
+);
 router.get(
   "/teachers",
   protect,
@@ -90,7 +95,12 @@ router.put(
   authorizeRole("admin"),
   adminController.updateTeacherDetails,
 );
-router.delete("/teacher/:teacherId", protect, authorizeRole("admin",), adminController.deleteTeacher)
+router.delete(
+  "/teacher/:teacherId",
+  protect,
+  authorizeRole("admin"),
+  adminController.deleteTeacher,
+);
 router.get(
   "/subjects",
   protect,
