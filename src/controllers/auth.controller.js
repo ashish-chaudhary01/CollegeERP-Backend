@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import otpModel from "../models/otp.Model.js";
-import transporter from "../lib/mailer.js";
+import SendMail from "../lib/mailer.js";
 
 const isProduction =
   process.env.NODE_ENV === "production" ||
@@ -145,37 +145,7 @@ async function forgotPassword(req, res) {
       expiresAt,
     });
 
-    // Send email
-    await transporter.sendMail({
-      from: `"CERP" <${process.env.BREVO_FROM_EMAIL}>`,
-      to: email,
-      subject: "CERP - Password Reset OTP",
-
-      html: `
-        <div style="font-family: Arial, sans-serif;">
-          <h2>Password Reset</h2>
-
-          <p>
-            We received a request to reset your CERP password.
-          </p>
-
-          <p>Your OTP is:</p>
-
-          <h1 style="letter-spacing: 6px;">
-            ${otp}
-          </h1>
-
-          <p>
-            This OTP is valid for <strong>10 minutes</strong>.
-          </p>
-
-          <p>
-            If you did not request this password reset,
-            you can safely ignore this email.
-          </p>
-        </div>
-      `,
-    });
+    await SendMail(email, otp);
 
     res.status(200).json({ message: "otp sent successfully" });
   } catch (error) {
